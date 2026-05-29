@@ -81,6 +81,25 @@
   white-space: nowrap;
 }
 
+.robot-card__sim-btn {
+  display: flex;
+  align-items: center;
+  padding: 3px 8px;
+  background: rgba(56, 139, 253, 0.1);
+  border: 1px solid rgba(56, 139, 253, 0.3);
+  border-radius: var(--radius);
+  color: #58a6ff;
+  cursor: pointer;
+  font-size: 11px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.robot-card__sim-btn:hover {
+  background: rgba(56, 139, 253, 0.2);
+  border-color: rgba(56, 139, 253, 0.6);
+}
+
 .robot-card__remove-btn {
   display: flex;
   align-items: center;

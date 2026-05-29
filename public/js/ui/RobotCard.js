@@ -53,6 +53,7 @@ class RobotCard {
             ${this._statusLabel(this.robot.status)}
           </span>
           <span class="robot-card__node-count">${this.robot.nodeCount || 0} 노드</span>
+          <a class="robot-card__sim-btn" href="/sim.html?host=${this._esc(this.robot.host)}&port=${this.robot.port}&name=${encodeURIComponent(this.robot.name)}" target="_blank" title="시뮬레이션 뷰어 열기">🗺 시뮬</a>
           <button class="robot-card__remove-btn" title="로봇 제거">✕</button>
         </div>
       </div>
