@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ROS2 Robot Dashboard</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/robot-card.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="app-header__left">
+      <div class="app-header__logo">
+        <div class="app-header__logo-icon">🤖</div>
+        <span class="app-header__title">ROS2 Robot Dashboard</span>
+      </div>
+    </div>
+    <div class="app-header__right">
+      <span id="connection-status" class="badge badge--unknown">
+        <span class="status-dot status-dot--unknown"></span>연결 중...
+      </span>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <div id="dashboard"></div>
+  </main>
+
+  <!-- roslibjs (CDN) -->
+  <script src="https://static.robotwebtools.org/roslibjs/current/roslib.min.js"></script>
+
+  <!-- ROS 추상화 레이어 -->
+  <script src="/js/ros/TopicHandler.js"></script>
+  <script src="/js/ros/ServiceHandler.js"></script>
+  <script src="/js/ros/ParamHandler.js"></script>
+
+  <!-- 핵심 클라이언트 -->
+  <script src="/js/RobotClient.js"></script>
+  <script src="/js/RobotManager.js"></script>
+
+  <!-- UI 컴포넌트 -->
+  <script src="/js/ui/RobotCard.js"></script>
+  <script src="/js/ui/Dashboard.js"></script>
+
+  <!-- 앱 진입점 -->
+  <script src="/js/app.js"></script>
+
+</body>
+</html>

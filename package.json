@@ -1,0 +1,20 @@
+{
+  "name": "ros2-robot-dashboard",
+  "version": "1.0.0",
+  "description": "Multi-robot ROS2 web dashboard via rosbridge",
+  "main": "server/index.js",
+  "scripts": {
+    "init": "node init.js",
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.18.2",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

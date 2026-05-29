@@ -1,0 +1,6 @@
+node_modules/
+.env
+*.log
+ros2_bags/
+/config/robots.json
+package-lock.json

@@ -1,0 +1,944 @@
+/* =============================================
+   ROS2 Robot Dashboard — 로봇 카드 스타일
+   ============================================= */
+
+/* ---- 카드 컨테이너 ---- */
+.robot-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+.robot-card:focus-within {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 1px var(--accent-blue);
+}
+
+.robot-card--online {
+  border-top: 2px solid var(--status-online-text);
+}
+
+.robot-card--offline {
+  border-top: 2px solid var(--status-offline-text);
+  opacity: 0.8;
+}
+
+.robot-card--connecting {
+  border-top: 2px solid var(--status-connecting-text);
+}
+
+/* ---- 카드 헤더 ---- */
+.robot-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border-muted);
+  gap: 8px;
+}
+
+.robot-card__header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.robot-card__name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.robot-card__id {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.robot-card__header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.robot-card__node-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  background-color: var(--bg-overlay);
+  padding: 2px 7px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.robot-card__remove-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+
+.robot-card__remove-btn:hover {
+  background-color: rgba(218, 54, 51, 0.15);
+  border-color: rgba(218, 54, 51, 0.4);
+  color: var(--status-offline-text);
+}
+
+/* ---- 탭 네비게이션 ---- */
+.robot-card__tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+
+.robot-card__tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.robot-card__tab {
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+  font-family: var(--font);
+  outline: none;
+  margin-bottom: -1px;
+}
+
+.robot-card__tab:hover {
+  color: var(--text-secondary);
+}
+
+.robot-card__tab--active {
+  color: var(--accent-blue-hover);
+  border-bottom-color: var(--accent-blue-hover);
+}
+
+/* ---- 탭 패널 ---- */
+.robot-card__body {
+  flex: 1;
+  min-height: 0;
+}
+
+.tab-panel {
+  display: none;
+  padding: 14px 16px;
+}
+
+.tab-panel--active {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* =============================
+   로그 탭
+   ============================= */
+.log-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.log-toolbar__left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.log-level-filter {
+  display: flex;
+  gap: 4px;
+}
+
+.log-level-btn {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: opacity 0.15s;
+  background: transparent;
+}
+
+.log-level-btn--debug {
+  color: var(--text-muted);
+  border-color: var(--text-muted);
+}
+.log-level-btn--info {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+.log-level-btn--warn {
+  color: var(--status-connecting-text);
+  border-color: var(--status-connecting-text);
+}
+.log-level-btn--error {
+  color: var(--status-offline-text);
+  border-color: var(--status-offline-text);
+}
+
+.log-level-btn--active {
+  opacity: 1;
+}
+.log-level-btn:not(.log-level-btn--active) {
+  opacity: 0.35;
+}
+
+.log-viewer {
+  height: 200px;
+  overflow-y: auto;
+  background-color: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.log-entry {
+  display: flex;
+  gap: 8px;
+  padding: 1px 0;
+  word-break: break-all;
+}
+
+.log-entry__time {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-size: 10.5px;
+  margin-top: 1px;
+}
+
+.log-entry__level {
+  font-weight: 600;
+  flex-shrink: 0;
+  width: 36px;
+  font-size: 10.5px;
+  margin-top: 1px;
+}
+
+.log-entry__msg {
+  flex: 1;
+  min-width: 0;
+}
+
+.log-entry--debug .log-entry__level,
+.log-entry--debug .log-entry__msg {
+  color: var(--text-muted);
+}
+
+.log-entry--info .log-entry__level,
+.log-entry--info .log-entry__msg {
+  color: var(--text-primary);
+}
+
+.log-entry--warn .log-entry__level,
+.log-entry--warn .log-entry__msg {
+  color: var(--status-connecting-text);
+}
+
+.log-entry--error .log-entry__level,
+.log-entry--error .log-entry__msg {
+  color: var(--status-offline-text);
+}
+
+.log-entry--fatal .log-entry__level,
+.log-entry--fatal .log-entry__msg {
+  color: var(--status-offline-text);
+  font-weight: 700;
+}
+
+/* =============================
+   제어 탭
+   ============================= */
+.control-layout {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.control-joystick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-joystick__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* +자형 방향키 패드 */
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 44px);
+  grid-template-rows: repeat(3, 44px);
+  gap: 4px;
+}
+
+.dpad__btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  background-color: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color 0.1s, transform 0.08s;
+  user-select: none;
+  font-family: var(--font);
+}
+
+.dpad__btn:hover {
+  background-color: var(--accent-blue);
+  border-color: var(--accent-blue);
+}
+
+.dpad__btn:active,
+.dpad__btn--pressed {
+  background-color: var(--accent-blue-hover);
+  border-color: var(--accent-blue-hover);
+  transform: scale(0.93);
+}
+
+.dpad__btn--stop {
+  background-color: var(--bg-overlay);
+  font-size: 14px;
+}
+
+.dpad__btn--stop:hover {
+  background-color: var(--accent-red);
+  border-color: var(--accent-red);
+}
+
+/* 방향키 그리드 위치 */
+.dpad__btn--up    { grid-column: 2; grid-row: 1; }
+.dpad__btn--left  { grid-column: 1; grid-row: 2; }
+.dpad__btn--stop  { grid-column: 2; grid-row: 2; }
+.dpad__btn--right { grid-column: 3; grid-row: 2; }
+.dpad__btn--down  { grid-column: 2; grid-row: 3; }
+
+.control-settings {
+  flex: 1;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.control-settings__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.speed-slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.speed-slider-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.speed-value {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: 'Consolas', monospace;
+}
+
+.speed-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+
+.speed-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.speed-slider::-webkit-slider-thumb:hover {
+  background: var(--accent-blue-hover);
+}
+
+.control-velocity-display {
+  background-color: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+}
+
+.velocity-row {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-secondary);
+}
+
+.velocity-row span:last-child {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.control-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 8px 10px;
+  background-color: var(--bg-base);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-muted);
+}
+
+/* =============================
+   토픽 탭
+   ============================= */
+.topic-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.topic-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.topic-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.topic-table th {
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background-color: var(--bg-overlay);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.topic-table td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border-muted);
+  vertical-align: middle;
+}
+
+.topic-table tr:last-child td {
+  border-bottom: none;
+}
+
+.topic-table tr:hover td {
+  background-color: var(--bg-overlay);
+}
+
+.topic-name {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11.5px;
+  color: var(--text-primary);
+}
+
+.topic-type {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.topic-hz {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: 'Consolas', monospace;
+  white-space: nowrap;
+}
+
+.topic-message-preview {
+  background-color: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11.5px;
+  max-height: 120px;
+  overflow-y: auto;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.topic-message-preview__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* =============================
+   서비스 탭
+   ============================= */
+.service-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.service-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background-color: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.service-form__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.service-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.service-result {
+  background-color: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.service-result__header {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-muted);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.service-result__body {
+  padding: 10px 12px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.service-result__body--success { color: var(--status-online-text); }
+.service-result__body--error   { color: var(--status-offline-text); }
+
+/* =============================
+   파라미터 탭
+   ============================= */
+.param-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.param-lookup {
+  display: flex;
+  gap: 8px;
+}
+
+.param-lookup .form-input {
+  flex: 1;
+}
+
+.param-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.param-item {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-muted);
+  font-size: 12px;
+  transition: background-color 0.1s;
+}
+
+.param-item:last-child {
+  border-bottom: none;
+}
+
+.param-item:hover {
+  background-color: var(--bg-overlay);
+}
+
+.param-name {
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: var(--text-primary);
+  font-size: 11.5px;
+  word-break: break-all;
+}
+
+.param-value-input {
+  background-color: var(--bg-overlay);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11.5px;
+  padding: 4px 8px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+
+.param-value-input:focus {
+  border-color: var(--accent-blue);
+}
+
+.param-set-btn {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+/* ---- 로딩 스피너 ---- */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent-blue-hover);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- 인라인 메시지 ---- */
+.inline-msg {
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  border: 1px solid;
+}
+
+.inline-msg--info {
+  background-color: rgba(31, 111, 235, 0.1);
+  border-color: rgba(31, 111, 235, 0.3);
+  color: var(--accent-blue-hover);
+}
+
+.inline-msg--error {
+  background-color: rgba(218, 54, 51, 0.1);
+  border-color: rgba(218, 54, 51, 0.3);
+  color: var(--status-offline-text);
+}
+
+.inline-msg--success {
+  background-color: rgba(35, 134, 54, 0.1);
+  border-color: rgba(35, 134, 54, 0.3);
+  color: var(--status-online-text);
+}
+
+/* =============================
+   토픽 탭 — 실시간 뷰어
+   ============================= */
+.topic-empty-cell {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 20px;
+  font-size: 12px;
+}
+
+.topic-viewer {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background-color: var(--bg-base);
+  flex-shrink: 0;
+}
+
+.topic-viewer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  background-color: var(--bg-overlay);
+  border-bottom: 1px solid var(--border-muted);
+  gap: 8px;
+}
+
+.topic-viewer__name {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11.5px;
+  color: var(--accent-blue-hover);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.topic-viewer__body {
+  padding: 8px 10px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 180px;
+  overflow-y: auto;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* =============================
+   Bag 탭
+   ============================= */
+.bag-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.bag-section {
+  background-color: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bag-section__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bag-rec-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--status-offline-text);
+  letter-spacing: 0.02em;
+}
+
+.bag-topic-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bag-topic-selector__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bag-topic-checklist {
+  max-height: 160px;
+  overflow-y: auto;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+  background-color: var(--bg-overlay);
+}
+
+.bag-topic-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border-muted);
+  cursor: pointer;
+  transition: background-color 0.1s;
+  font-size: 12px;
+}
+
+.bag-topic-row:last-child {
+  border-bottom: none;
+}
+
+.bag-topic-row:hover {
+  background-color: var(--bg-card-hover);
+}
+
+.bag-topic-row input[type="checkbox"] {
+  accent-color: var(--accent-blue);
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.bag-topic-name {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11.5px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bag-topic-type {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* bag 파일 목록 */
+.bag-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+  overflow: hidden;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.bag-file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-muted);
+  background-color: var(--bg-overlay);
+  font-size: 12px;
+  transition: background-color 0.1s;
+}
+
+.bag-file-row:last-child {
+  border-bottom: none;
+}
+
+.bag-file-row:hover {
+  background-color: var(--bg-card-hover);
+}
+
+.bag-file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bag-file-name {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11.5px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bag-file-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.bag-file-actions {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  flex-shrink: 0;
+}

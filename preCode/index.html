@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SLAM Viewer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0d0d14; color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            overflow: hidden; width: 100vw; height: 100vh;
+        }
+        #canvas-container { position: fixed; inset: 0; }
+
+        /* ── 상단 HUD ── */
+        #top-bar {
+            position: fixed; top: 0; left: 0; right: 0; padding: 12px 16px;
+            display: flex; align-items: center; justify-content: space-between;
+            background: linear-gradient(to bottom, rgba(13,13,20,0.92) 0%, transparent 100%);
+            pointer-events: none; z-index: 10;
+        }
+        #app-title { font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.85); }
+        #badge-group { display: flex; gap: 8px; }
+        .badge {
+            display: flex; align-items: center; gap: 6px;
+            background: rgba(255,255,255,0.07); border: 0.5px solid rgba(255,255,255,0.12);
+            border-radius: 20px; padding: 4px 10px;
+            font-size: 12px; color: rgba(255,255,255,0.65);
+        }
+        .badge.recording {
+            background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.3); color: #ef4444;
+        }
+        .status-dot {
+            width: 7px; height: 7px; border-radius: 50%; background: #6b7280; flex-shrink: 0;
+        }
+        .status-dot.connected { background: #22c55e; }
+        .status-dot.error     { background: #ef4444; }
+        .status-dot.warn      { background: #eab308; }
+        .status-dot.pulse {
+            background: #ef4444;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+        }
+
+        /* ── 하단 바 ── */
+        #bottom-bar {
+            position: fixed; bottom: 0; left: 0; right: 0; padding: 8px 16px;
+            display: flex; align-items: center; justify-content: space-between;
+            background: linear-gradient(to top, rgba(13,13,20,0.95) 0%, transparent 100%);
+            z-index: 10;
+        }
+        #stat-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .stat { font-size: 12px; color: rgba(255,255,255,0.38); }
+        .stat b { color: rgba(255,255,255,0.75); font-weight: 500; }
+
+        #controls { display: flex; gap: 6px; align-items: center; }
+
+        .ctrl-btn {
+            height: 34px; border-radius: 8px;
+            background: rgba(255,255,255,0.07); border: 0.5px solid rgba(255,255,255,0.12);
+            display: flex; align-items: center; justify-content: center;
+            color: rgba(255,255,255,0.55); cursor: pointer;
+            transition: background 0.15s, color 0.15s; padding: 0 10px; gap: 5px;
+            font-size: 12px; white-space: nowrap;
+        }
+        .ctrl-btn:hover { background: rgba(255,255,255,0.13); color: rgba(255,255,255,0.9); }
+        .ctrl-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+        .ctrl-btn.icon-only { width: 34px; padding: 0; }
+
+        #btn-console.active {
+            background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.3); color: #22c55e;
+        }
+
+        /* 저장 버튼 그룹 */
+        .save-group { display: flex; gap: 4px; align-items: center; }
+        .save-group-label {
+            font-size: 11px; color: rgba(255,255,255,0.25);
+            padding: 0 4px;
+        }
+
+        #btn-bag {
+            background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.25);
+            color: rgba(239,68,68,0.7);
+        }
+        #btn-bag:hover { background: rgba(239,68,68,0.2); color: #ef4444; }
+        #btn-bag.recording {
+            background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.5);
+            color: #ef4444;
+        }
+
+        /* ── 콘솔 서랍 ── */
+        #console-drawer {
+            position: fixed; left: 0; right: 0; bottom: -100%;
+            height: 320px;
+            background: rgba(10,10,18,0.97);
+            border-top: 0.5px solid rgba(255,255,255,0.1);
+            z-index: 30; transition: bottom 0.3s cubic-bezier(0.4,0,0.2,1);
+            display: flex; flex-direction: column;
+        }
+        #console-drawer.open { bottom: 44px; }
+
+        #console-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 16px; border-bottom: 0.5px solid rgba(255,255,255,0.08); flex-shrink: 0;
+        }
+        #console-tabs { display: flex; gap: 4px; }
+        .tab-btn {
+            padding: 4px 12px; border-radius: 6px; font-size: 12px;
+            background: transparent; border: none; color: rgba(255,255,255,0.38);
+            cursor: pointer; transition: background 0.15s, color 0.15s;
+        }
+        .tab-btn.active { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.85); }
+        #btn-clear {
+            font-size: 11px; color: rgba(255,255,255,0.3); background: none;
+            border: none; cursor: pointer; padding: 4px 8px; border-radius: 4px;
+        }
+        #btn-clear:hover { color: rgba(255,255,255,0.6); }
+
+        #console-body { flex: 1; overflow: hidden; position: relative; }
+
+        /* 토픽 패널 */
+        #panel-topics {
+            position: absolute; inset: 0; overflow-y: auto; padding: 10px 16px;
+        }
+        .topic-row {
+            display: grid; grid-template-columns: 1fr 60px 90px 120px;
+            align-items: center; padding: 7px 0;
+            border-bottom: 0.5px solid rgba(255,255,255,0.05);
+            font-size: 12px; gap: 12px;
+        }
+        .topic-row:last-child { border-bottom: none; }
+        .topic-name { color: rgba(255,255,255,0.7); font-family: monospace; }
+        .topic-hz { color: #22c55e; font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+        .topic-hz.zero { color: rgba(255,255,255,0.25); }
+        .topic-size { color: rgba(255,255,255,0.35); text-align: right; font-family: monospace; }
+        .topic-value { color: rgba(255,255,255,0.55); font-family: monospace; text-align: right; }
+        .topic-header {
+            display: grid; grid-template-columns: 1fr 60px 90px 120px;
+            padding: 0 0 6px; gap: 12px;
+            font-size: 10px; color: rgba(255,255,255,0.25);
+            border-bottom: 0.5px solid rgba(255,255,255,0.08);
+            margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .col-right { text-align: right; }
+
+        /* 로그 패널 */
+        #panel-log {
+            position: absolute; inset: 0; overflow-y: auto;
+            padding: 8px 16px; display: none;
+        }
+        .log-entry {
+            display: flex; gap: 10px; padding: 4px 0;
+            border-bottom: 0.5px solid rgba(255,255,255,0.04);
+            font-size: 12px; font-family: monospace; line-height: 1.5;
+        }
+        .log-time { color: rgba(255,255,255,0.25); flex-shrink: 0; }
+        .log-level { flex-shrink: 0; font-weight: 500; width: 48px; }
+        .log-level.info  { color: #3b82f6; }
+        .log-level.ok    { color: #22c55e; }
+        .log-level.warn  { color: #eab308; }
+        .log-level.error { color: #ef4444; }
+        .log-msg { color: rgba(255,255,255,0.65); }
+
+        /* 히스토리 패널 */
+        #panel-history {
+            position: absolute; inset: 0; overflow-y: auto;
+            padding: 10px 16px; display: none;
+        }
+        .history-empty {
+            color: rgba(255,255,255,0.2); font-size: 13px;
+            text-align: center; margin-top: 40px;
+        }
+        .history-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 0; border-bottom: 0.5px solid rgba(255,255,255,0.05);
+        }
+        .history-row:last-child { border-bottom: none; }
+        .history-ext {
+            font-size: 10px; font-weight: 500; padding: 2px 6px;
+            border-radius: 4px; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .ext-pcd  { background: rgba(59,130,246,0.15); color: #60a5fa; }
+        .ext-ply  { background: rgba(34,197,94,0.15);  color: #4ade80; }
+        .ext-bag  { background: rgba(239,68,68,0.15);  color: #f87171; }
+        .history-info { flex: 1; min-width: 0; }
+        .history-name {
+            font-size: 12px; color: rgba(255,255,255,0.75);
+            font-family: monospace; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        .history-meta { font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 2px; }
+        .history-dl {
+            flex-shrink: 0; padding: 4px 10px; border-radius: 6px;
+            background: rgba(255,255,255,0.07); border: 0.5px solid rgba(255,255,255,0.12);
+            color: rgba(255,255,255,0.5); font-size: 11px; cursor: pointer;
+            text-decoration: none; display: flex; align-items: center; gap: 4px;
+            transition: background 0.15s, color 0.15s;
+        }
+        .history-dl:hover { background: rgba(255,255,255,0.13); color: rgba(255,255,255,0.9); }
+        .history-dl svg { width: 12px; height: 12px; }
+
+        /* 저장 토스트 */
+        #toast {
+            position: fixed; top: 54px; left: 50%; transform: translateX(-50%);
+            background: rgba(20,20,30,0.95); border: 0.5px solid rgba(255,255,255,0.12);
+            border-radius: 8px; padding: 8px 16px; font-size: 13px;
+            z-index: 50; opacity: 0; transition: opacity 0.2s;
+            white-space: nowrap; pointer-events: none;
+        }
+        #toast.show { opacity: 1; }
+        #toast.ok   { border-color: rgba(34,197,94,0.4); color: #4ade80; }
+        #toast.err  { border-color: rgba(239,68,68,0.4); color: #f87171; }
+
+        /* ── PIP ── */
+        #pip {
+            position: fixed; bottom: 58px; right: 16px; width: 220px;
+            border-radius: 10px; border: 1px solid rgba(255,255,255,0.14);
+            background: #111118; z-index: 20; cursor: grab; user-select: none;
+            transition: width 0.25s ease;
+        }
+        #pip:active { cursor: grabbing; }
+        #pip.expanded { width: 420px; cursor: default; }
+        #pip-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 6px 9px; background: rgba(255,255,255,0.05);
+            border-bottom: 0.5px solid rgba(255,255,255,0.09);
+            border-radius: 10px 10px 0 0;
+        }
+        #pip-title {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 11px; color: rgba(255,255,255,0.5);
+        }
+        #pip-actions { display: flex; gap: 2px; }
+        .pip-btn {
+            width: 22px; height: 22px; border-radius: 5px; background: transparent;
+            border: none; color: rgba(255,255,255,0.35); font-size: 13px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: background 0.15s, color 0.15s;
+        }
+        .pip-btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
+        .pip-btn svg { width: 13px; height: 13px; }
+        #pip-body {
+            width: 100%; aspect-ratio: 16/9; background: #0a0a12;
+            overflow: hidden; position: relative;
+        }
+        #camera-img { width: 100%; height: 100%; object-fit: cover; display: none; }
+        #camera-placeholder {
+            position: absolute; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 8px;
+            color: rgba(255,255,255,0.2); font-size: 12px;
+        }
+        #camera-placeholder svg { width: 28px; height: 28px; opacity: 0.3; }
+        #pip-footer {
+            padding: 5px 9px; font-size: 10px; color: rgba(255,255,255,0.25);
+            background: rgba(0,0,0,0.25); border-radius: 0 0 10px 10px;
+            display: flex; justify-content: space-between;
+        }
+        #btn-show-pip {
+            position: fixed; bottom: 58px; right: 16px; z-index: 20;
+            background: rgba(255,255,255,0.07); border: 0.5px solid rgba(255,255,255,0.14);
+            border-radius: 8px; color: rgba(255,255,255,0.6); font-size: 12px;
+            padding: 6px 12px; cursor: pointer; display: none;
+            align-items: center; gap: 6px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- 상단 HUD -->
+<div id="top-bar">
+    <div id="app-title">SLAM Viewer</div>
+    <div id="badge-group">
+        <div class="badge"><div class="status-dot" id="dot-lidar"></div> MID360</div>
+        <div class="badge"><div class="status-dot" id="dot-cam"></div> ZED Mini</div>
+        <div class="badge"><div class="status-dot warn"></div><span id="badge-pts">0 pts</span></div>
+        <div class="badge" id="badge-bag" style="display:none">
+            <div class="status-dot pulse"></div> REC <span id="badge-bag-time">0s</span>
+        </div>
+    </div>
+</div>
+
+<div id="canvas-container"></div>
+
+<!-- 토스트 -->
+<div id="toast"></div>
+
+<!-- PIP -->
+<div id="pip">
+    <div id="pip-header">
+        <div id="pip-title">
+            <div class="status-dot" id="pip-dot"></div> ZED Mini — RGB
+        </div>
+        <div id="pip-actions">
+            <button class="pip-btn" id="btn-expand" title="확대/축소">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                </svg>
+            </button>
+            <button class="pip-btn" id="btn-hide">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6 6 18M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    <div id="pip-body">
+        <img id="camera-img" alt="ZED Mini" />
+        <div id="camera-placeholder">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+                <circle cx="12" cy="13" r="3"/>
+            </svg>
+            카메라 신호 대기 중
+        </div>
+    </div>
+    <div id="pip-footer">
+        <span id="cam-status-text">연결 중...</span>
+        <span>드래그하여 이동</span>
+    </div>
+</div>
+
+<button id="btn-show-pip">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+        <circle cx="12" cy="13" r="3"/>
+    </svg>
+    카메라 보기
+</button>
+
+<!-- 콘솔 서랍 -->
+<div id="console-drawer">
+    <div id="console-header">
+        <div id="console-tabs">
+            <button class="tab-btn active" data-tab="topics">토픽</button>
+            <button class="tab-btn" data-tab="log">로그</button>
+            <button class="tab-btn" data-tab="history">저장 히스토리</button>
+        </div>
+        <button id="btn-clear">지우기</button>
+    </div>
+    <div id="console-body">
+        <div id="panel-topics">
+            <div class="topic-header">
+                <span>토픽</span>
+                <span class="col-right">Hz</span>
+                <span class="col-right">크기</span>
+                <span class="col-right">최신값</span>
+            </div>
+            <div id="topic-list"></div>
+        </div>
+        <div id="panel-log"></div>
+        <div id="panel-history"></div>
+    </div>
+</div>
+
+<!-- 하단 바 -->
+<div id="bottom-bar">
+    <div id="stat-row">
+        <button class="ctrl-btn" id="btn-console">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
+            </svg>
+            콘솔
+        </button>
+
+        <div style="width:0.5px; height:20px; background:rgba(255,255,255,0.1); flex-shrink:0;"></div>
+
+        <!-- 맵 저장 -->
+        <div class="save-group">
+            <span class="save-group-label">맵 저장</span>
+            <button class="ctrl-btn" id="btn-save-pcd">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                PCD
+            </button>
+            <button class="ctrl-btn" id="btn-save-ply">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                PLY
+            </button>
+            <button class="ctrl-btn" id="btn-clear-map" style="color: rgba(234,179,8,0.7); border-color: rgba(234,179,8,0.25);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+                </svg>
+                맵 초기화
+            </button>
+        </div>
+
+        <div style="width:0.5px; height:20px; background:rgba(255,255,255,0.1); flex-shrink:0;"></div>
+
+        <!-- rosbag -->
+        <button class="ctrl-btn" id="btn-bag">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="12" cy="12" r="10"/>
+                <circle cx="12" cy="12" r="3" id="bag-icon-inner"/>
+            </svg>
+            <span id="btn-bag-label">REC 시작</span>
+        </button>
+
+        <div class="stat">포인트 <b id="stat-pts">0</b></div>
+        <div class="stat">LiDAR <b id="stat-lidar">대기</b></div>
+        <div class="stat">카메라 <b id="stat-cam">대기</b></div>
+    </div>
+
+    <div id="controls">
+        <button class="ctrl-btn icon-only" id="btn-top" title="탑뷰">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+        </button>
+        <button class="ctrl-btn icon-only" id="btn-reset" title="뷰 리셋">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+            </svg>
+        </button>
+        <button class="ctrl-btn icon-only" id="btn-fs" title="전체화면">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+            </svg>
+        </button>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ─── Three.js ───
+const scene = new THREE.Scene();
+const cam3d = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x0d0d14);
+document.getElementById('canvas-container').appendChild(renderer.domElement);
+scene.add(new THREE.GridHelper(30, 30, 0x1e2035, 0x161625));
+
+let pointCloud = null;
+let spherical = { theta: 0, phi: Math.PI / 4, radius: 15 };
+
+document.getElementById('btn-clear-map').addEventListener('click', () => {
+    if (confirm('누적 맵을 초기화하시겠습니까?')) {
+        sendCmd('clear_map');
+    }
+});
+
+function updateCam3d() {
+    cam3d.position.set(
+        spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta),
+        spherical.radius * Math.cos(spherical.phi),
+        spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta)
+    );
+    cam3d.lookAt(0, 0, 0);
+}
+updateCam3d();
+
+function updatePointCloud(points) {
+    if (pointCloud) scene.remove(pointCloud);
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(points.length * 3);
+    const col = new Float32Array(points.length * 3);
+    points.forEach((p, i) => {
+        pos[i*3] = p[0]; pos[i*3+1] = p[2]; pos[i*3+2] = -p[1];
+        const h = Math.min(1, Math.max(0, (p[2] + 2) / 4));
+        col[i*3]   = Math.min(1, h * 2);
+        col[i*3+1] = Math.min(1, 1 - Math.abs(h - 0.5) * 2);
+        col[i*3+2] = Math.max(0, 1 - h * 2);
+    });
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color',    new THREE.BufferAttribute(col, 3));
+    pointCloud = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.05, vertexColors: true }));
+    scene.add(pointCloud);
+    const n = points.length.toLocaleString();
+    document.getElementById('stat-pts').textContent  = n;
+    document.getElementById('badge-pts').textContent = n + ' pts';
+}
+
+// 컨트롤
+let isDragging = false, prev = { x: 0, y: 0 };
+const cvs = renderer.domElement;
+cvs.addEventListener('mousedown', e => { isDragging = true; prev = { x: e.clientX, y: e.clientY }; });
+window.addEventListener('mouseup', () => { isDragging = false; });
+window.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    spherical.theta -= (e.clientX - prev.x) * 0.01;
+    spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi - (e.clientY - prev.y) * 0.01));
+    prev = { x: e.clientX, y: e.clientY };
+    updateCam3d();
+});
+cvs.addEventListener('wheel', e => {
+    spherical.radius = Math.max(1, Math.min(150, spherical.radius + e.deltaY * 0.05));
+    updateCam3d();
+});
+let lastTouch = null;
+cvs.addEventListener('touchstart', e => { if (e.touches.length === 1) lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY }; });
+cvs.addEventListener('touchmove', e => {
+    if (e.touches.length !== 1 || !lastTouch) return;
+    spherical.theta -= (e.touches[0].clientX - lastTouch.x) * 0.01;
+    spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi - (e.touches[0].clientY - lastTouch.y) * 0.01));
+    lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    updateCam3d();
+});
+window.addEventListener('resize', () => {
+    cam3d.aspect = window.innerWidth / window.innerHeight;
+    cam3d.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+document.getElementById('btn-reset').addEventListener('click', () => {
+    spherical = { theta: 0, phi: Math.PI / 4, radius: 15 }; updateCam3d();
+});
+document.getElementById('btn-top').addEventListener('click', () => {
+    spherical.phi = 0.05; updateCam3d();
+});
+document.getElementById('btn-fs').addEventListener('click', () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+});
+(function animate() { requestAnimationFrame(animate); renderer.render(scene, cam3d); })();
+
+// ─── PIP ───
+const pip = document.getElementById('pip');
+let pipDragging = false, pipOffset = { x: 0, y: 0 };
+document.getElementById('pip-header').addEventListener('mousedown', e => {
+    if (e.target.closest('.pip-btn')) return;
+    pipDragging = true;
+    const r = pip.getBoundingClientRect();
+    pipOffset = { x: e.clientX - r.left, y: e.clientY - r.top };
+    pip.style.transition = 'none'; pip.style.right = 'auto'; pip.style.bottom = 'auto';
+    e.preventDefault();
+});
+window.addEventListener('mousemove', e => {
+    if (!pipDragging) return;
+    pip.style.left = Math.max(0, Math.min(window.innerWidth  - pip.offsetWidth,  e.clientX - pipOffset.x)) + 'px';
+    pip.style.top  = Math.max(0, Math.min(window.innerHeight - pip.offsetHeight, e.clientY - pipOffset.y)) + 'px';
+});
+window.addEventListener('mouseup', () => { pipDragging = false; });
+document.getElementById('btn-expand').addEventListener('click', () => pip.classList.toggle('expanded'));
+document.getElementById('btn-hide').addEventListener('click', () => {
+    pip.style.display = 'none';
+    document.getElementById('btn-show-pip').style.display = 'flex';
+});
+document.getElementById('btn-show-pip').addEventListener('click', () => {
+    pip.style.display = 'block';
+    document.getElementById('btn-show-pip').style.display = 'none';
+});
+
+// ─── 콘솔 서랍 ───
+const drawer = document.getElementById('console-drawer');
+const btnConsole = document.getElementById('btn-console');
+let consoleOpen = false;
+
+btnConsole.addEventListener('click', () => {
+    consoleOpen = !consoleOpen;
+    drawer.classList.toggle('open', consoleOpen);
+    btnConsole.classList.toggle('active', consoleOpen);
+});
+
+const panels = { topics: 'panel-topics', log: 'panel-log', history: 'panel-history' };
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        Object.values(panels).forEach(id => document.getElementById(id).style.display = 'none');
+        document.getElementById(panels[btn.dataset.tab]).style.display = 'block';
+    });
+});
+document.getElementById('btn-clear').addEventListener('click', () => {
+    document.getElementById('panel-log').innerHTML = '';
+});
+
+// ─── 토스트 ───
+let toastTimer = null;
+function showToast(msg, type = 'ok') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = `show ${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.className = '', 3000);
+}
+
+// ─── 로그 ───
+function addLog(level, msg) {
+    const time = new Date().toTimeString().slice(0, 8);
+    const panel = document.getElementById('panel-log');
+    const el = document.createElement('div');
+    el.className = 'log-entry';
+    el.innerHTML = `<span class="log-time">${time}</span><span class="log-level ${level}">${level.toUpperCase()}</span><span class="log-msg">${msg}</span>`;
+    panel.appendChild(el);
+    panel.scrollTop = panel.scrollHeight;
+}
+
+// ─── 토픽 렌더 ───
+function renderTopics(topics) {
+    document.getElementById('topic-list').innerHTML = topics.map(t => `
+        <div class="topic-row">
+            <span class="topic-name">${t.name}</span>
+            <span class="${t.hz === 0 ? 'topic-hz zero' : 'topic-hz'}">${t.hz === 0 ? '0 Hz' : t.hz + ' Hz'}</span>
+            <span class="topic-size">${t.msg_size > 0 ? (t.msg_size/1024).toFixed(1)+' KB' : '-'}</span>
+            <span class="topic-value">${t.last_value}</span>
+        </div>`).join('');
+}
+
+// ─── 히스토리 렌더 ───
+function renderHistory(files) {
+    const panel = document.getElementById('panel-history');
+    if (!files.length) {
+        panel.innerHTML = '<div class="history-empty">저장된 파일 없음</div>';
+        return;
+    }
+    panel.innerHTML = files.map(f => {
+        const dlBtn = f.downloadable !== false
+            ? `<a class="history-dl" href="/download/${encodeURIComponent(f.name)}" download="${f.name}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>다운로드</a>`
+            : `<a class="history-dl" href="/download/${encodeURIComponent(f.name)}" download="${f.name}.zip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>ZIP 다운로드</a>`;
+        return `
+        <div class="history-row">
+            <span class="history-ext ext-${f.ext}">${f.ext}</span>
+            <div class="history-info">
+                <div class="history-name">${f.name}</div>
+                <div class="history-meta">${f.time} · ${f.size}</div>
+            </div>
+            ${dlBtn}
+        </div>`;
+    }).join('');
+}
+
+// ─── rosbag UI 상태 ───
+let isRecording = false;
+let bagElapsed  = 0;
+function updateBagUI(recording, elapsed) {
+    isRecording = recording;
+    bagElapsed  = elapsed || 0;
+    const btn      = document.getElementById('btn-bag');
+    const label    = document.getElementById('btn-bag-label');
+    const badge    = document.getElementById('badge-bag');
+    const badgeTime = document.getElementById('badge-bag-time');
+    if (recording) {
+        btn.classList.add('recording');
+        label.textContent = `중지 (${bagElapsed}s)`;
+        badge.style.display = 'flex';
+        badgeTime.textContent = bagElapsed + 's';
+    } else {
+        btn.classList.remove('recording');
+        label.textContent = 'REC 시작';
+        badge.style.display = 'none';
+    }
+}
+
+// ─── CMD WebSocket ───
+let cmdWs = null;
+function connectCmd() {
+    cmdWs = new WebSocket(`ws://${location.host}?type=cmd`);
+    cmdWs.onopen = () => addLog('info', 'CMD WebSocket 연결됨');
+    cmdWs.onmessage = e => {
+        const data = JSON.parse(e.data);
+        if (data.type === 'save_result') {
+            if (data.ok) {
+                showToast(`✓ ${data.ext.toUpperCase()} 저장 완료: ${data.info}`, 'ok');
+                addLog('ok', `맵 저장: ${data.filename} (${data.info})`);
+            } else {
+                showToast(`저장 실패: ${data.info}`, 'err');
+                addLog('error', `맵 저장 실패: ${data.info}`);
+            }
+        } else if (data.type === 'bag_status') {
+            updateBagUI(data.recording, 0);
+            if (data.ok) {
+                showToast(data.recording ? '● REC 시작' : `REC 중지: ${data.info}`, data.recording ? 'ok' : 'ok');
+                addLog(data.recording ? 'ok' : 'warn', `rosbag: ${data.info}`);
+            } else {
+                showToast(`REC 오류: ${data.info}`, 'err');
+            }
+        } else if (data.type === 'history') {
+            renderHistory(data.files);
+        }
+    };
+    cmdWs.onclose = () => setTimeout(connectCmd, 3000);
+}
+
+function sendCmd(cmd) {
+    if (cmdWs && cmdWs.readyState === WebSocket.OPEN) {
+        cmdWs.send(JSON.stringify({ cmd }));
+    }
+}
+
+// 저장 버튼
+document.getElementById('btn-save-pcd').addEventListener('click', () => {
+    showToast('PCD 저장 중...', 'ok');
+    sendCmd('save_pcd');
+});
+document.getElementById('btn-save-ply').addEventListener('click', () => {
+    showToast('PLY 저장 중...', 'ok');
+    sendCmd('save_ply');
+});
+document.getElementById('btn-bag').addEventListener('click', () => {
+    sendCmd(isRecording ? 'bag_stop' : 'bag_start');
+});
+
+// ─── 포인트클라우드 WebSocket ───
+const dotLidar  = document.getElementById('dot-lidar');
+const statLidar = document.getElementById('stat-lidar');
+function connectPointcloud() {
+    const ws = new WebSocket(`ws://${location.host}?type=pointcloud`);
+    ws.onopen  = () => { dotLidar.className = 'status-dot connected'; statLidar.textContent = '연결됨'; addLog('ok', 'LiDAR 연결됨'); };
+    ws.onmessage = e => { const d = JSON.parse(e.data); if (d.points) updatePointCloud(d.points); };
+    ws.onclose = () => { dotLidar.className = 'status-dot error'; statLidar.textContent = '끊김'; addLog('error', 'LiDAR 끊김'); setTimeout(connectPointcloud, 3000); };
+}
+
+// ─── 카메라 WebSocket ───
+const dotCam    = document.getElementById('dot-cam');
+const pipDot    = document.getElementById('pip-dot');
+const statCam   = document.getElementById('stat-cam');
+const camStatus = document.getElementById('cam-status-text');
+const camImg    = document.getElementById('camera-img');
+const camHolder = document.getElementById('camera-placeholder');
+function connectCamera() {
+    const ws = new WebSocket(`ws://${location.host}?type=camera`);
+    ws.binaryType = 'blob';
+    ws.onopen  = () => { dotCam.className = 'status-dot connected'; pipDot.className = 'status-dot connected'; statCam.textContent = '연결됨'; camStatus.textContent = '연결됨'; addLog('ok', 'ZED Mini 연결됨'); };
+    ws.onmessage = e => { const url = URL.createObjectURL(e.data); camImg.onload = () => URL.revokeObjectURL(url); camImg.src = url; camImg.style.display = 'block'; camHolder.style.display = 'none'; };
+    ws.onclose = () => { dotCam.className = 'status-dot error'; pipDot.className = 'status-dot error'; statCam.textContent = '끊김'; camStatus.textContent = '재연결 중...'; addLog('error', 'ZED Mini 끊김'); setTimeout(connectCamera, 3000); };
+}
+
+// ─── 메타 WebSocket ───
+function connectMeta() {
+    const ws = new WebSocket(`ws://${location.host}?type=meta`);
+    ws.onopen    = () => addLog('info', 'META 연결됨');
+    ws.onmessage = e => {
+        const d = JSON.parse(e.data);
+        if (d.type === 'meta') {
+            renderTopics(d.topics);
+            updateBagUI(d.bag_recording, d.bag_elapsed);
+            // 전체 맵 포인트 수 표시
+            if (d.map_pts > 0) {
+                document.getElementById('badge-pts').textContent =
+                    `${d.map_pts.toLocaleString()} pts`;
+                document.getElementById('stat-pts').textContent =
+                    d.map_pts.toLocaleString();
+            }
+
+            if (d.odom) {
+                document.getElementById('stat-lidar').textContent =
+                    `x:${d.odom.x} y:${d.odom.y} z:${d.odom.z}`;
+            }
+        }
+    };
+    ws.onclose = () => setTimeout(connectMeta, 3000);
+}
+
+connectPointcloud();
+connectCamera();
+connectMeta();
+connectCmd();
+addLog('info', 'SLAM Viewer 시작');
+</script>
+</body>
+</html>
