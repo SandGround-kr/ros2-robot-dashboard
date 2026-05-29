@@ -6,7 +6,9 @@
   "scripts": {
     "init": "node init.js",
     "start": "node server/index.js",
-    "dev": "nodemon server/index.js"
+    "dev": "nodemon server/index.js",
+    "sim": "node sim/sim_robot.js --port 9095 --name sim1",
+    "sim:ns": "node sim/sim_robot.js --port 9095 --name sim1 --ns /sim1"
   },
   "dependencies": {
     "cors": "^2.8.5",
