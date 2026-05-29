@@ -90,6 +90,10 @@ class RobotCard {
     this._renderParamTab(el.querySelector('[data-panel="param"]'));
     this._renderLogTab(el.querySelector('[data-panel="log"]'));
 
+    // 키보드 이벤트: el이 완성된 후 부착
+    if (this._keydownHandler) el.addEventListener('keydown', this._keydownHandler);
+    if (this._keyupHandler)   el.addEventListener('keyup',   this._keyupHandler);
+
     return el;
   }
 
@@ -342,6 +346,7 @@ class RobotCard {
       btn.addEventListener('mouseleave',() => this._sendVel('stop', container));
     });
 
+    // 키보드 핸들러는 _build()에서 el이 확정된 후 부착 (_velContainer 저장)
     this._keydownHandler = e => {
       const dir = { ArrowUp:'forward', w:'forward', ArrowDown:'backward', s:'backward',
                     ArrowLeft:'left', a:'left', ArrowRight:'right', d:'right' }[e.key];
@@ -353,8 +358,7 @@ class RobotCard {
       this._pressedKeys.delete(e.key);
       if (this._pressedKeys.size === 0) this._sendVel('stop', container);
     };
-    this.el.addEventListener('keydown', this._keydownHandler);
-    this.el.addEventListener('keyup',   this._keyupHandler);
+    // this.el.addEventListener는 _build() 마지막에서 호출
   }
 
   _sendVel(dir, container) {
