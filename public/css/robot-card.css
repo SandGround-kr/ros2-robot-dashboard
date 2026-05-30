@@ -2,6 +2,70 @@
    ROS2 Robot Dashboard — 로봇 카드 스타일
    ============================================= */
 
+/* ---- 자동 감지 배지 ---- */
+.auto-detect-badge {
+  display: inline-block;
+  background: rgba(56,139,253,.15);
+  border: 1px solid rgba(56,139,253,.35);
+  color: #58a6ff;
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 10px;
+  letter-spacing: .03em;
+}
+
+/* ---- 토픽 탭 새 감지 애니메이션 ---- */
+@keyframes tab-pulse {
+  0%,100% { background: transparent; }
+  50%      { background: rgba(56,139,253,.25); }
+}
+.robot-card__tab--new { animation: tab-pulse .6s ease 3; }
+
+/* ---- 모듈 그룹 ---- */
+.topic-groups { display: flex; flex-direction: column; gap: 0; }
+
+.topic-module-section {
+  border-bottom: 1px solid var(--border);
+}
+.topic-module-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  user-select: none;
+  transition: background .15s;
+}
+.topic-module-header:hover { background: var(--bg-hover); }
+.topic-module-count {
+  font-size: 10px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 1px 6px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.topic-module-arrow { font-size: 10px; color: var(--text-muted); }
+.topic-module-body { background: var(--bg-primary); }
+.topic-module-body .topic-table { border-radius: 0; border: none; }
+
+/* ---- 풀스크린 단일 로봇 모드 ---- */
+.robot-card--fullscreen {
+  border: none;
+  border-radius: 0;
+  height: 100%;
+  min-height: 0;
+}
+.robot-card--fullscreen .robot-card__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 /* ---- 카드 컨테이너 ---- */
 .robot-card {
   background-color: var(--bg-card);

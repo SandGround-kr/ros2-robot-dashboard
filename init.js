@@ -4,10 +4,9 @@
  *
  * 실행 순서:
  *  1. node_modules 없으면 npm install
- *  2. .env 없으면 .env.example 복사
- *  3. config/robots.json 없으면 robots.default.json 복사
- *  4. ~/ros2_bags 디렉토리 생성
- *  5. 서버 실행 (server/index.js)
+ *  2. .env 없으면 .env.example 복사 (ROSBRIDGE_HOST/PORT/ROBOT_NAME 설정)
+ *  3. ~/ros2_bags 디렉토리 생성
+ *  4. 서버 실행 (server/index.js)
  */
 
 const { execSync, spawn } = require('child_process');
@@ -54,26 +53,7 @@ if (!exists(envPath) && exists(envExample)) {
   log('📄', '.env 기본값으로 생성됨');
 }
 
-// ─── 3. config/robots.json ───────────────────────────────────
-const robotsJson    = path.join(ROOT, 'config', 'robots.json');
-const robotsDefault = path.join(ROOT, 'config', 'robots.default.json');
-
-if (!exists(robotsJson)) {
-  if (exists(robotsDefault)) {
-    fs.copyFileSync(robotsDefault, robotsJson);
-    log('🤖', 'config/robots.json 생성됨 (기본 템플릿) — robots.json에서 로봇 IP를 설정하세요');
-  } else {
-    fs.writeFileSync(robotsJson, JSON.stringify({
-      robots: [],
-      healthCheckInterval: 5000
-    }, null, 2));
-    log('🤖', 'config/robots.json 빈 파일로 생성됨');
-  }
-} else {
-  log('✅', 'config/robots.json 확인됨');
-}
-
-// ─── 4. ~/ros2_bags 디렉토리 ────────────────────────────────
+// ─── 3. ~/ros2_bags 디렉토리 ────────────────────────────────
 const bagDir = process.env.BAG_SAVE_DIR || path.join(os.homedir(), 'ros2_bags');
 if (!exists(bagDir)) {
   fs.mkdirSync(bagDir, { recursive: true });

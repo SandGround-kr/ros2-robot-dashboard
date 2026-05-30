@@ -1,14 +1,11 @@
 /**
- * RobotManager — REST 즉시 로드 + SSE 실시간 상태 동기화
+ * RobotManager — REST 즉시 로드 + SSE 실시간 상태 동기화 (단일 로봇)
  */
 class RobotManager {
   constructor(onUpdate) {
     this.clients = new Map();
     this.robots  = new Map();
     this.onUpdate = onUpdate;
-    this._sseReady = false;
-
-    // REST API로 즉시 로봇 목록 표시 (SSE 연결 전에도 렌더링)
     this._fetchInitial();
     this._connectSSE();
   }
@@ -28,17 +25,12 @@ class RobotManager {
     const es = new EventSource('/api/events');
 
     es.addEventListener('init', (e) => {
-      // SSE init은 REST와 중복될 수 있으므로 상태만 병합
       try {
         const robots = JSON.parse(e.data);
         robots.forEach(r => {
-          if (this.robots.has(r.id)) {
-            Object.assign(this.robots.get(r.id), r);
-          } else {
-            this._addRobot(r);
-          }
+          if (this.robots.has(r.id)) Object.assign(this.robots.get(r.id), r);
+          else this._addRobot(r);
         });
-        this._sseReady = true;
         this.onUpdate(this.getRobots());
       } catch (err) {
         console.error('[RobotManager] SSE init 처리 오류:', err);
@@ -57,26 +49,6 @@ class RobotManager {
       }
     });
 
-    es.addEventListener('robot_added', (e) => {
-      try {
-        const robot = JSON.parse(e.data);
-        this._addRobot(robot);
-        this.onUpdate(this.getRobots());
-      } catch (err) {
-        console.error('[RobotManager] robot_added 처리 오류:', err);
-      }
-    });
-
-    es.addEventListener('robot_removed', (e) => {
-      try {
-        const { id } = JSON.parse(e.data);
-        this._removeRobot(id);
-        this.onUpdate(this.getRobots());
-      } catch (err) {
-        console.error('[RobotManager] robot_removed 처리 오류:', err);
-      }
-    });
-
     es.onerror = () => { /* 브라우저가 자동 재연결 */ };
   }
 
@@ -92,27 +64,6 @@ class RobotManager {
     }
   }
 
-  _removeRobot(id) {
-    const client = this.clients.get(id);
-    if (client) { client.destroy(); this.clients.delete(id); }
-    this.robots.delete(id);
-  }
-
   getRobots()        { return Array.from(this.robots.values()); }
   getClient(robotId) { return this.clients.get(robotId); }
-
-  async addRobot(robot) {
-    const res = await fetch('/api/robots', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(robot),
-    });
-    if (!res.ok) throw new Error((await res.json()).error);
-    return res.json();
-  }
-
-  async removeRobot(id) {
-    const res = await fetch(`/api/robots/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error((await res.json()).error);
-  }
 }

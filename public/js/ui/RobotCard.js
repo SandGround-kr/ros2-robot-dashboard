@@ -12,6 +12,7 @@ class RobotCard {
     this.topicHandler   = client ? new TopicHandler(client) : null;
     this.serviceHandler = client ? new ServiceHandler(client) : null;
     this.paramHandler   = client ? new ParamHandler(client)   : null;
+    this.discovery      = client ? new TopicDiscovery(client, 3000) : null;
 
     // 로그
     this._logEntries   = [];
@@ -21,6 +22,7 @@ class RobotCard {
     // 토픽
     this._topicList      = [];       // [{ name, type }]
     this._subscribedTopics = new Map(); // topicName → { subId, valueEl, hzEl }
+    this._topicGroupOpen  = new Map(); // moduleName → bool (접힘 상태)
 
     // Bag
     this._bagRecording  = false;
@@ -54,7 +56,7 @@ class RobotCard {
           </span>
           <span class="robot-card__node-count">${this.robot.nodeCount || 0} 노드</span>
           <a class="robot-card__sim-btn" href="/sim.html?host=${this._esc(this.robot.host)}&port=${this.robot.port}&name=${encodeURIComponent(this.robot.name)}" target="_blank" title="시뮬레이션 뷰어 열기">🗺 시뮬</a>
-          <button class="robot-card__remove-btn" title="로봇 제거">✕</button>
+          <button class="robot-card__remove-btn" title="로봇 제거" style="display:none">✕</button>
         </div>
       </div>
 
@@ -128,26 +130,18 @@ class RobotCard {
     container.innerHTML = `
       <div class="topic-toolbar">
         <div style="display:flex;gap:8px;align-items:center;">
-          <span class="topic-tab-count js-topic-count" style="font-size:12px;color:var(--text-secondary);">토픽 0개</span>
+          <span class="topic-tab-count js-topic-count" style="font-size:12px;color:var(--text-secondary);">
+            <span class="auto-detect-badge">자동 감지</span> 토픽 0개
+          </span>
           <input class="form-input js-topic-search" placeholder="필터..." style="width:130px;padding:4px 8px;font-size:12px;">
         </div>
-        <button class="btn btn--secondary btn--sm js-refresh-topics">새로고침</button>
+        <button class="btn btn--secondary btn--sm js-refresh-topics" title="즉시 새로고침">↺</button>
       </div>
 
-      <div class="topic-table-wrap">
-        <table class="topic-table">
-          <thead>
-            <tr>
-              <th>토픽명</th>
-              <th>타입</th>
-              <th style="width:60px;">Hz</th>
-              <th style="width:56px;">구독</th>
-            </tr>
-          </thead>
-          <tbody class="js-topic-tbody">
-            <tr><td colspan="4" class="topic-empty-cell">새로고침을 눌러 토픽 목록을 불러오세요</td></tr>
-          </tbody>
-        </table>
+      <div class="topic-groups js-topic-groups">
+        <div class="topic-empty-cell" style="padding:20px;text-align:center;color:var(--text-muted);">
+          ROS2 연결 후 토픽을 자동으로 감지합니다...
+        </div>
       </div>
 
       <!-- 실시간 메시지 뷰어 -->
@@ -163,43 +157,160 @@ class RobotCard {
       </div>
     `;
 
-    const tbody    = container.querySelector('.js-topic-tbody');
-    const viewer   = container.querySelector('.js-topic-viewer');
+    const viewer     = container.querySelector('.js-topic-viewer');
     const viewerName = container.querySelector('.js-viewer-name');
     const viewerHz   = container.querySelector('.js-viewer-hz');
     const viewerBody = container.querySelector('.js-viewer-body');
-    const countEl    = container.querySelector('.js-topic-count');
     const searchEl   = container.querySelector('.js-topic-search');
 
-    // 닫기
     container.querySelector('.js-viewer-close').addEventListener('click', () => {
       viewer.style.display = 'none';
     });
 
-    // 검색 필터
-    searchEl.addEventListener('input', () => this._filterTopicTable(tbody, searchEl.value));
+    searchEl.addEventListener('input', () => this._refreshTopicTab());
 
-    // 새로고침
+    // 즉시 새로고침 버튼
     container.querySelector('.js-refresh-topics').addEventListener('click', async () => {
+      if (!this.discovery) return;
       const btn = container.querySelector('.js-refresh-topics');
-      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+      btn.disabled = true;
       try {
-        const res = await this.serviceHandler.getTopics();
-        const names = res.topics || [];
-        const types = res.types  || [];
-        this._topicList = names.map((n, i) => ({ name: n, type: types[i] || '' }));
-        countEl.textContent = `토픽 ${this._topicList.length}개`;
-        this._renderTopicRows(tbody, this._topicList, viewer, viewerName, viewerHz, viewerBody);
-        searchEl.value = '';
-      } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="4" style="color:var(--status-offline-text);padding:12px;">${this._esc(e.message || '오류')}</td></tr>`;
-      } finally { btn.disabled = false; btn.textContent = '새로고침'; }
+        const res = await this.client.callService('/rosapi/topics', 'rosapi/Topics');
+        const names = res.topics || [], types = res.types || [];
+        names.forEach((n, i) => {
+          if (!this.discovery._knownTopics.has(n))
+            this.discovery._knownTopics.set(n, types[i] || '');
+        });
+        this._topicList = this.discovery.getAllTopics();
+        this._refreshTopicTab();
+      } catch(e) {
+        showToast('토픽 조회 실패: ' + (e.message || '오류'), 'error');
+      } finally { btn.disabled = false; }
     });
 
     this._topicTabContainer = container;
+    this._topicViewer = { el: viewer, name: viewerName, hz: viewerHz, body: viewerBody };
+  }
+
+  // 토픽 탭 전체 재렌더 (discovery 업데이트 or 검색어 변경 시 호출)
+  _refreshTopicTab() {
+    const container = this._topicTabContainer;
+    if (!container) return;
+
+    const groupsEl  = container.querySelector('.js-topic-groups');
+    const countEl   = container.querySelector('.js-topic-count');
+    const searchEl  = container.querySelector('.js-topic-search');
+    const viewer    = this._topicViewer;
+
+    const query = searchEl ? searchEl.value.toLowerCase() : '';
+    let list = this._topicList;
+    if (query) list = list.filter(t => t.name.toLowerCase().includes(query) || t.type.toLowerCase().includes(query));
+
+    if (countEl) countEl.innerHTML = `<span class="auto-detect-badge">자동 감지</span> 토픽 ${this._topicList.length}개`;
+
+    if (!list.length) {
+      groupsEl.innerHTML = `<div class="topic-empty-cell" style="padding:20px;text-align:center;color:var(--text-muted);">
+        ${query ? '검색 결과 없음' : 'ROS2 연결 후 토픽을 자동으로 감지합니다...'}</div>`;
+      return;
+    }
+
+    const groups = TopicDiscovery.groupByModule(list);
+    groupsEl.innerHTML = '';
+
+    for (const group of groups) {
+      const isOpen = this._topicGroupOpen.get(group.info.name) !== false; // 기본 열림
+      const section = document.createElement('div');
+      section.className = 'topic-module-section';
+      section.innerHTML = `
+        <div class="topic-module-header js-mod-header" data-mod="${this._esc(group.info.name)}">
+          <span>${group.info.icon} ${this._esc(group.info.name)}</span>
+          <span style="display:flex;gap:6px;align-items:center;">
+            <span class="topic-module-count">${group.topics.length}개</span>
+            <span class="topic-module-arrow">${isOpen ? '▾' : '▸'}</span>
+          </span>
+        </div>
+        <div class="topic-module-body" style="${isOpen ? '' : 'display:none'}">
+          <table class="topic-table">
+            <thead>
+              <tr><th>토픽명</th><th>타입</th><th style="width:60px">Hz</th><th style="width:56px">구독</th></tr>
+            </thead>
+            <tbody class="js-topic-tbody">
+              ${group.topics.map(t => `
+                <tr data-topic="${this._esc(t.name)}">
+                  <td><span class="topic-name" title="${this._esc(t.name)}">${this._esc(t.name)}</span></td>
+                  <td><span class="topic-type">${this._esc(t.type)}</span></td>
+                  <td><span class="topic-hz js-hz-${this._topicKey(t.name)}">—</span></td>
+                  <td>
+                    <button class="btn btn--sm ${this._subscribedTopics.has(t.name) ? 'btn--danger' : 'btn--success'} js-sub-btn"
+                      data-name="${this._esc(t.name)}" data-type="${this._esc(t.type)}">
+                      ${this._subscribedTopics.has(t.name) ? '해제' : '구독'}
+                    </button>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      // 헤더 클릭 → 접기/펼치기
+      section.querySelector('.js-mod-header').addEventListener('click', () => {
+        const body  = section.querySelector('.topic-module-body');
+        const arrow = section.querySelector('.topic-module-arrow');
+        const open  = body.style.display !== 'none';
+        body.style.display = open ? 'none' : '';
+        arrow.textContent  = open ? '▸' : '▾';
+        this._topicGroupOpen.set(group.info.name, !open);
+      });
+
+      // 구독 버튼
+      section.querySelectorAll('.js-sub-btn').forEach(btn => {
+        btn.addEventListener('click', () => this._toggleSubscribe(btn, viewer));
+      });
+      section.querySelectorAll('.topic-name').forEach(el => {
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', () => {
+          const name = el.closest('tr').dataset.topic;
+          if (this._subscribedTopics.has(name)) {
+            viewer.name.textContent = name;
+            viewer.el.style.display = 'flex';
+          }
+        });
+      });
+
+      groupsEl.appendChild(section);
+    }
+  }
+
+  _toggleSubscribe(btn, viewer) {
+    const name = btn.dataset.name;
+    const type = btn.dataset.type;
+    if (this._subscribedTopics.has(name)) {
+      this.topicHandler.unsubscribe(name);
+      this._subscribedTopics.delete(name);
+      btn.className = 'btn btn--sm btn--success js-sub-btn';
+      btn.textContent = '구독';
+      if (viewer.name.textContent === name) viewer.el.style.display = 'none';
+    } else {
+      const hzEl = this.el.querySelector(`.js-hz-${this._topicKey(name)}`);
+      this.topicHandler.subscribe(name, type, (msg, entry) => {
+        if (hzEl) hzEl.textContent = `${entry.hz} Hz`;
+        if (viewer.name.textContent === name) {
+          viewer.hz.textContent   = `${entry.hz} Hz`;
+          viewer.body.textContent = JSON.stringify(msg, null, 2);
+        }
+      });
+      this._subscribedTopics.set(name, true);
+      btn.className = 'btn btn--sm btn--danger js-sub-btn';
+      btn.textContent = '해제';
+      viewer.name.textContent = name;
+      viewer.hz.textContent   = '— Hz';
+      viewer.body.textContent = '첫 메시지 대기 중...';
+      viewer.el.style.display = 'flex';
+    }
   }
 
   _renderTopicRows(tbody, list, viewer, viewerName, viewerHz, viewerBody) {
+    // 하위 호환 유지 (Bag 탭 토픽 선택 등에서 사용)
     if (!list.length) {
       tbody.innerHTML = '<tr><td colspan="4" class="topic-empty-cell">토픽 없음</td></tr>';
       return;
@@ -265,30 +376,6 @@ class RobotCard {
         }
       });
     });
-  }
-
-  _filterTopicTable(tbody, query) {
-    if (!query) {
-      this._renderTopicRows(
-        tbody, this._topicList,
-        this._topicTabContainer.querySelector('.js-topic-viewer'),
-        this._topicTabContainer.querySelector('.js-viewer-name'),
-        this._topicTabContainer.querySelector('.js-viewer-hz'),
-        this._topicTabContainer.querySelector('.js-viewer-body')
-      );
-      return;
-    }
-    const q = query.toLowerCase();
-    const filtered = this._topicList.filter(t =>
-      t.name.toLowerCase().includes(q) || t.type.toLowerCase().includes(q)
-    );
-    this._renderTopicRows(
-      tbody, filtered,
-      this._topicTabContainer.querySelector('.js-topic-viewer'),
-      this._topicTabContainer.querySelector('.js-viewer-name'),
-      this._topicTabContainer.querySelector('.js-viewer-hz'),
-      this._topicTabContainer.querySelector('.js-viewer-body')
-    );
   }
 
   _topicKey(name) { return name.replace(/[^a-zA-Z0-9]/g, '_'); }
@@ -783,7 +870,53 @@ class RobotCard {
   _initRosListeners() {
     this.client.on('connect', () => {
       this.topicHandler.subscribe('/rosout', 'rcl_interfaces/msg/Log', msg => this._addLogEntry(msg));
+
+      // 토픽 자동 감지 시작
+      if (this.discovery) {
+        this.discovery.reset();
+        this.discovery.start();
+      }
     });
+
+    this.client.on('close', () => {
+      if (this.discovery) this.discovery.stop();
+    });
+
+    if (this.discovery) {
+      // 토픽 목록 갱신 → 탭 리렌더
+      this.discovery.on('topics_updated', ({ topics, nodes }) => {
+        this._topicList = topics;
+        this._refreshTopicTab();
+        // 노드 카운트 업데이트
+        const nodeEl = this.el.querySelector('.robot-card__node-count');
+        if (nodeEl) nodeEl.textContent = `${nodes.length} 노드`;
+      });
+
+      // 새 토픽/모듈 감지 → 알림
+      this.discovery.on('new_detected', ({ topics, nodes, modules }) => {
+        if (topics.length === 0 && nodes.length === 0) return;
+
+        // 탭 배지 표시
+        const tabEl = this.el.querySelector('[data-tab="topic"]');
+        if (tabEl) {
+          tabEl.classList.add('robot-card__tab--new');
+          setTimeout(() => tabEl.classList.remove('robot-card__tab--new'), 4000);
+        }
+
+        // 새 모듈 토스트
+        if (modules && modules.length) {
+          modules.forEach(m => {
+            const count = topics.filter(t => t.name.startsWith(m.prefix)).length;
+            showToast(`${m.icon} ${m.name} 감지 (+${count} 토픽)`, 'info');
+          });
+        } else if (topics.length) {
+          showToast(`새 토픽 ${topics.length}개 감지됨`, 'info');
+        }
+        if (nodes.length) {
+          showToast(`새 노드 ${nodes.length}개 감지됨`, 'info');
+        }
+      });
+    }
   }
 
   // ═══════════════════════════════════════════════
@@ -794,6 +927,7 @@ class RobotCard {
   }
 
   destroy() {
+    if (this.discovery)    this.discovery.stop();
     if (this.topicHandler) this.topicHandler.destroy();
     clearInterval(this._bagTimer);
     if (this._keydownHandler) this.el.removeEventListener('keydown', this._keydownHandler);
