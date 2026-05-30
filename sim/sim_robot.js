@@ -310,6 +310,14 @@ wss.on('connection', (ws, req) => {
         state.vtheta = angular?.z ?? 0;
         console.log(`[${ROBOT_NAME}] cmd_vel  v:${state.vx.toFixed(2)}  ω:${state.vtheta.toFixed(2)}`);
       }
+      if (msg.topic === t('/teleport') && msg.msg) {
+        state.x      = msg.msg.x     ?? state.x;
+        state.y      = msg.msg.y     ?? state.y;
+        state.theta  = msg.msg.theta ?? state.theta;
+        state.vx     = 0;
+        state.vtheta = 0;
+        console.log(`[${ROBOT_NAME}] teleport → (${state.x.toFixed(2)}, ${state.y.toFixed(2)})`);
+      }
       return;
     }
     if (op === 'call_service') { handleService(ws, msg); return; }

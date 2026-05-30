@@ -1,669 +1,506 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>시뮬레이션 뷰어</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: #0d1117;
-      color: #c9d1d9;
-      font-family: 'Segoe UI', monospace, sans-serif;
-      display: flex;
-      height: 100vh;
-      overflow: hidden;
-    }
-    #sidebar {
-      width: 260px;
-      min-width: 260px;
-      background: #161b22;
-      border-right: 1px solid #30363d;
-      display: flex;
-      flex-direction: column;
-      padding: 16px;
-      gap: 12px;
-      overflow-y: auto;
-    }
-    #sidebar h2 {
-      font-size: 15px;
-      font-weight: 600;
-      color: #58a6ff;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #30363d;
-    }
-    .info-block {
-      background: #0d1117;
-      border: 1px solid #30363d;
-      border-radius: 6px;
-      padding: 10px 12px;
-    }
-    .info-block h3 {
-      font-size: 11px;
-      text-transform: uppercase;
-      color: #8b949e;
-      letter-spacing: 0.05em;
-      margin-bottom: 8px;
-    }
-    .info-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      padding: 2px 0;
-    }
-    .info-row .label { color: #8b949e; }
-    .info-row .value { color: #e6edf3; font-family: monospace; }
-    .value.ok   { color: #3fb950; }
-    .value.warn { color: #d29922; }
-    .value.err  { color: #f85149; }
-    #conn-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      padding: 8px 12px;
-      border-radius: 6px;
-      background: #0d1117;
-      border: 1px solid #30363d;
-    }
-    #conn-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #f85149;
-      transition: background 0.3s;
-    }
-    #conn-dot.connected { background: #3fb950; }
-    #conn-dot.connecting { background: #d29922; animation: pulse 1s infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-    .control-hint {
-      background: #0d1117;
-      border: 1px solid #30363d;
-      border-radius: 6px;
-      padding: 10px 12px;
-      font-size: 11px;
-      color: #8b949e;
-      line-height: 1.8;
-    }
-    .control-hint b { color: #58a6ff; }
-    .kbd {
-      display: inline-block;
-      background: #21262d;
-      border: 1px solid #30363d;
-      border-radius: 3px;
-      padding: 1px 5px;
-      font-size: 10px;
-      color: #c9d1d9;
-      font-family: monospace;
-    }
-    .hz-badge {
-      display: inline-block;
-      background: #1f2937;
-      border: 1px solid #374151;
-      border-radius: 10px;
-      padding: 1px 7px;
-      font-size: 10px;
-      color: #60a5fa;
-      margin-left: 4px;
-    }
-    #canvas-wrap {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      overflow: hidden;
-    }
-    #toolbar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      background: #161b22;
-      border-bottom: 1px solid #30363d;
-      font-size: 12px;
-    }
-    #toolbar a {
-      color: #58a6ff;
-      text-decoration: none;
-      font-size: 12px;
-    }
-    #toolbar a:hover { text-decoration: underline; }
-    #toolbar .sep { color: #30363d; }
-    #toolbar .title { color: #e6edf3; font-weight: 600; }
-    .btn {
-      padding: 4px 10px;
-      border: 1px solid #30363d;
-      background: #21262d;
-      color: #c9d1d9;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 11px;
-      transition: background 0.15s;
-    }
-    .btn:hover { background: #30363d; }
-    .btn.active { background: #1f4170; border-color: #58a6ff; color: #58a6ff; }
-    canvas {
-      flex: 1;
-      display: block;
-      cursor: crosshair;
-    }
-    #overlay-msg {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(13,17,23,0.9);
-      border: 1px solid #30363d;
-      border-radius: 8px;
-      padding: 20px 32px;
-      text-align: center;
-      pointer-events: none;
-    }
-    #overlay-msg h3 { font-size: 15px; color: #58a6ff; margin-bottom: 6px; }
-    #overlay-msg p  { font-size: 12px; color: #8b949e; }
-    .scan-legend {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      color: #8b949e;
-    }
-    .swatch {
-      width: 12px; height: 12px;
-      border-radius: 2px;
-      display: inline-block;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>시뮬레이션 뷰어</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; overflow:hidden; background:#0d1117; color:#c9d1d9;
+  font-family:'Segoe UI',monospace,sans-serif; }
+
+/* 사이드바: 왼쪽 고정 */
+#sidebar {
+  position:fixed; top:0; left:0; width:260px; height:100%;
+  background:#161b22; border-right:1px solid #30363d;
+  overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px;
+  z-index:20;
+}
+#sidebar h2 { font-size:14px; color:#58a6ff; padding-bottom:8px; border-bottom:1px solid #30363d; }
+.iblk { background:#0d1117; border:1px solid #30363d; border-radius:5px; padding:9px 11px; }
+.iblk h3 { font-size:10px; text-transform:uppercase; color:#8b949e; letter-spacing:.05em; margin-bottom:6px; }
+.irow { display:flex; justify-content:space-between; font-size:12px; padding:2px 0; }
+.irow .l { color:#8b949e; }
+.irow .v { color:#e6edf3; font-family:monospace; }
+.ok{color:#3fb950!important} .warn{color:#d29922!important} .err{color:#f85149!important}
+.hint { background:#0d1117; border:1px solid #30363d; border-radius:5px; padding:9px 11px;
+  font-size:11px; color:#8b949e; line-height:1.9; }
+.hint b { color:#58a6ff; }
+.kbd { display:inline-block; background:#21262d; border:1px solid #30363d; border-radius:3px;
+  padding:1px 5px; font-size:10px; color:#c9d1d9; }
+.iblk label { display:block; font-size:12px; padding:2px 0; cursor:pointer; }
+
+/* 캔버스 영역: 사이드바 오른쪽 전체 */
+#canvas-wrap {
+  position:fixed; top:0; left:260px; right:0; bottom:0;
+  background:#111820;
+}
+
+/* 툴바 오버레이 */
+#toolbar {
+  position:absolute; top:0; left:0; right:0; height:36px;
+  background:rgba(22,27,34,.93); border-bottom:1px solid #30363d;
+  display:flex; align-items:center; gap:8px; padding:0 12px; z-index:10; font-size:12px;
+}
+#toolbar a { color:#58a6ff; text-decoration:none; }
+#toolbar a:hover { text-decoration:underline; }
+
+/* 캔버스: 툴바 아래 전부 */
+#myCanvas {
+  position:absolute; top:36px; left:0; right:0; bottom:0;
+  display:block;
+}
+
+/* 연결 오버레이 */
+#overlay {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  background:rgba(13,17,23,.92); border:1px solid #30363d; border-radius:8px;
+  padding:20px 32px; text-align:center; z-index:15; pointer-events:none;
+}
+#overlay h3 { font-size:15px; color:#58a6ff; margin-bottom:6px; }
+#overlay p  { font-size:12px; color:#8b949e; }
+
+/* 연결 상태 */
+#conn-status { display:flex; align-items:center; gap:8px; font-size:13px; padding:8px 11px;
+  border-radius:5px; background:#0d1117; border:1px solid #30363d; }
+#conn-dot { width:8px; height:8px; border-radius:50%; background:#f85149; transition:background .3s; }
+#conn-dot.on { background:#3fb950; }
+#conn-dot.blink { background:#d29922; animation:pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+</style>
 </head>
 <body>
 
+<!-- 사이드바 -->
 <div id="sidebar">
   <h2>시뮬레이션 뷰어</h2>
 
   <div id="conn-status">
-    <div id="conn-dot" class="connecting"></div>
+    <div id="conn-dot" class="blink"></div>
     <span id="conn-label">연결 중...</span>
   </div>
 
-  <div class="info-block">
+  <div class="iblk">
     <h3>로봇 상태</h3>
-    <div class="info-row"><span class="label">위치 X</span><span class="value" id="pos-x">—</span></div>
-    <div class="info-row"><span class="label">위치 Y</span><span class="value" id="pos-y">—</span></div>
-    <div class="info-row"><span class="label">방향 θ</span><span class="value" id="pos-theta">—</span></div>
-    <div class="info-row"><span class="label">선속도</span><span class="value" id="vel-lin">—</span></div>
-    <div class="info-row"><span class="label">각속도</span><span class="value" id="vel-ang">—</span></div>
+    <div class="irow"><span class="l">위치 X</span><span class="v" id="px">—</span></div>
+    <div class="irow"><span class="l">위치 Y</span><span class="v" id="py">—</span></div>
+    <div class="irow"><span class="l">방향 θ</span><span class="v" id="pth">—</span></div>
+    <div class="irow"><span class="l">선속도</span><span class="v" id="vlin">—</span></div>
+    <div class="irow"><span class="l">각속도</span><span class="v" id="vang">—</span></div>
   </div>
 
-  <div class="info-block">
+  <div class="iblk">
     <h3>토픽 수신율</h3>
-    <div class="info-row"><span class="label">/odom</span><span class="value hz-badge" id="hz-odom">— Hz</span></div>
-    <div class="info-row"><span class="label">/scan</span><span class="value hz-badge" id="hz-scan">— Hz</span></div>
-    <div class="info-row"><span class="label">/battery</span><span class="value" id="battery-pct">—</span></div>
+    <div class="irow"><span class="l">/odom</span><span class="v" id="hz-odom">— Hz</span></div>
+    <div class="irow"><span class="l">/scan</span><span class="v" id="hz-scan">— Hz</span></div>
+    <div class="irow"><span class="l">배터리</span><span class="v" id="bat">—</span></div>
   </div>
 
-  <div class="info-block">
-    <h3>LiDAR 스캔</h3>
-    <div class="info-row"><span class="label">빔 수</span><span class="value" id="scan-beams">—</span></div>
-    <div class="info-row"><span class="label">최소 거리</span><span class="value" id="scan-min">—</span></div>
-    <div class="info-row"><span class="label">최대 거리</span><span class="value" id="scan-max">—</span></div>
-    <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">
-      <div class="scan-legend"><span class="swatch" style="background:#22c55e88"></span>LiDAR 점</div>
-      <div class="scan-legend"><span class="swatch" style="background:#facc1566"></span>근거리 경고</div>
-      <div class="scan-legend"><span class="swatch" style="background:#3b82f666"></span>벽</div>
-    </div>
+  <div class="iblk">
+    <h3>LiDAR</h3>
+    <div class="irow"><span class="l">빔 수</span><span class="v" id="beams">—</span></div>
+    <div class="irow"><span class="l">최소</span><span class="v" id="rmin">—</span></div>
+    <div class="irow"><span class="l">최대</span><span class="v" id="rmax">—</span></div>
   </div>
 
-  <div class="control-hint">
+  <div class="hint">
     <b>키보드 조작</b><br>
-    <span class="kbd">W</span> / <span class="kbd">S</span> 전진 / 후진<br>
-    <span class="kbd">A</span> / <span class="kbd">D</span> 좌회전 / 우회전<br>
-    <span class="kbd">Space</span> 정지<br>
+    <span class="kbd">W</span>/<span class="kbd">S</span> 전진/후진 &nbsp;
+    <span class="kbd">A</span>/<span class="kbd">D</span> 회전<br>
+    <span class="kbd">Space</span> 정지 &nbsp;
     <span class="kbd">R</span> 궤적 초기화<br>
-    <span class="kbd">+</span> / <span class="kbd">-</span> 확대 / 축소<br>
-    <span class="kbd">0</span> 뷰 초기화
+    <span class="kbd">+</span>/<span class="kbd">-</span> 확대/축소 &nbsp;
+    <span class="kbd">0</span> 뷰 초기화<br>
+    <span class="kbd">T</span> 텔레포트 모드 토글<br>
+    <b>텔레포트 모드:</b> 클릭한 위치로 로봇 순간이동
   </div>
 
-  <div class="info-block">
-    <h3>보기 옵션</h3>
-    <div style="display:flex;flex-direction:column;gap:6px;font-size:12px;">
-      <label><input type="checkbox" id="opt-trail" checked> 궤적 표시</label>
-      <label><input type="checkbox" id="opt-scan" checked> LiDAR 빔</label>
-      <label><input type="checkbox" id="opt-grid" checked> 격자</label>
-      <label><input type="checkbox" id="opt-follow" checked> 로봇 추적</label>
-    </div>
+  <div class="iblk">
+    <h3>보기</h3>
+    <label><input type="checkbox" id="opt-trail" checked> 궤적</label>
+    <label><input type="checkbox" id="opt-scan"  checked> LiDAR 빔</label>
+    <label><input type="checkbox" id="opt-grid"  checked> 격자</label>
+    <label><input type="checkbox" id="opt-follow" checked> 로봇 추적</label>
   </div>
 </div>
 
+<!-- 캔버스 영역 -->
 <div id="canvas-wrap">
   <div id="toolbar">
     <a href="/">← 대시보드</a>
-    <span class="sep">|</span>
-    <span class="title" id="robot-title">로봇 연결 중...</span>
+    <span style="color:#30363d">|</span>
+    <span style="color:#e6edf3;font-weight:600" id="robot-title">—</span>
     <span style="flex:1"></span>
-    <span style="font-size:11px;color:#8b949e;" id="toolbar-host"></span>
+    <button id="btn-teleport" style="
+      padding:3px 10px; border-radius:4px; font-size:11px; cursor:pointer;
+      background:rgba(99,102,241,.15); border:1px solid rgba(99,102,241,.4);
+      color:#a5b4fc; transition:all .15s;" title="T키로도 토글">
+      📍 텔레포트
+    </button>
+    <span style="color:#8b949e;font-size:11px" id="host-label"></span>
   </div>
-  <canvas id="canvas"></canvas>
-  <div id="overlay-msg">
-    <h3>rosbridge 연결 중...</h3>
-    <p id="overlay-sub">시뮬레이션 로봇에 연결하는 중입니다</p>
+  <canvas id="myCanvas"></canvas>
+  <div id="overlay">
+    <h3 id="ov-title">rosbridge 연결 중...</h3>
+    <p  id="ov-sub">시뮬레이션 로봇에 연결하는 중입니다</p>
   </div>
 </div>
 
 <script>
-// ── URL 파라미터 ───────────────────────────────────────────
-const params  = new URLSearchParams(location.search);
-const HOST    = params.get('host') || 'localhost';
-const PORT    = params.get('port') || '9095';
-const RNAME   = params.get('name') || '시뮬레이션 로봇';
-
+// ── 파라미터 ─────────────────────────────────────────────────
+const p    = new URLSearchParams(location.search);
+const HOST = p.get('host') || 'localhost';
+const PORT = p.get('port') || '9095';
+const RNAME= p.get('name') || '시뮬레이션 로봇';
 document.getElementById('robot-title').textContent = RNAME;
-document.getElementById('toolbar-host').textContent = `${HOST}:${PORT}`;
+document.getElementById('host-label').textContent  = HOST + ':' + PORT;
 
-// ── Canvas 설정 ────────────────────────────────────────────
-const canvas  = document.getElementById('canvas');
-const ctx     = canvas.getContext('2d');
-const wrap    = document.getElementById('canvas-wrap');
+// ── Canvas ──────────────────────────────────────────────────
+const canvas = document.getElementById('myCanvas');
+const ctx    = canvas.getContext('2d');
+const wrap   = document.getElementById('canvas-wrap');
 
-// 뷰포트 변환
-let scale  = 30;   // px/m
-let camX   = 0;    // world-center X
-let camY   = 0;
-let follow = true;
-
-function resize() {
+function resizeCanvas() {
   canvas.width  = wrap.clientWidth;
-  canvas.height = wrap.clientHeight - 37; // toolbar height
+  canvas.height = wrap.clientHeight - 36; // toolbar
 }
-window.addEventListener('resize', () => { resize(); draw(); });
-resize();
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
 
-// ── 상태 ──────────────────────────────────────────────────
-let robot = { x: 0, y: 0, theta: 0, vx: 0, vz: 0 };
-let scan  = null;    // Float32Array ranges
-let scanInfo = {};
-let walls = [];      // [[x1,y1,x2,y2], ...]
-let trail = [];      // [{x,y}]
-const MAX_TRAIL = 2000;
+// ── 뷰 ──────────────────────────────────────────────────────
+let scale = 35, camX = 0, camY = 0, follow = true;
 
-// ── 옵션 ──────────────────────────────────────────────────
-let showTrail = true, showScan = true, showGrid = true;
-document.getElementById('opt-trail').addEventListener('change', e => { showTrail = e.target.checked; });
-document.getElementById('opt-scan').addEventListener('change',  e => { showScan  = e.target.checked; });
-document.getElementById('opt-grid').addEventListener('change',  e => { showGrid  = e.target.checked; });
-document.getElementById('opt-follow').addEventListener('change',e => { follow    = e.target.checked; });
-
-// ── 좌표 변환 ─────────────────────────────────────────────
-function w2s(wx, wy) {          // world → screen (Y축 반전)
+function w2s(wx, wy) {
   return [
     canvas.width  / 2 + (wx - camX) * scale,
     canvas.height / 2 - (wy - camY) * scale,
   ];
 }
 
-// ── Hz 측정 ───────────────────────────────────────────────
-const hzTrack = {};
-function tickHz(name) {
-  const now = Date.now();
-  if (!hzTrack[name]) hzTrack[name] = [];
-  hzTrack[name].push(now);
-  // keep last 2s
-  hzTrack[name] = hzTrack[name].filter(t => now - t < 2000);
-}
-function getHz(name) {
-  if (!hzTrack[name] || hzTrack[name].length < 2) return null;
-  return (hzTrack[name].length / 2).toFixed(1);
-}
+// ── 상태 ─────────────────────────────────────────────────────
+let robot = { x:0, y:0, theta:0, vx:0, vz:0 };
+let scan  = null, scanInfo = {};
+let walls = [], trail = [];
+const MAX_TRAIL = 3000;
 
-// ── 네이티브 rosbridge 클라이언트 (roslibjs 불필요) ────────
+// ── 옵션 ────────────────────────────────────────────────────
+let showTrail=true, showScan=true, showGrid=true;
+document.getElementById('opt-trail').onchange  = e=>showTrail =e.target.checked;
+document.getElementById('opt-scan').onchange   = e=>showScan  =e.target.checked;
+document.getElementById('opt-grid').onchange   = e=>showGrid  =e.target.checked;
+document.getElementById('opt-follow').onchange = e=>{ follow  =e.target.checked;
+  if(follow){camX=robot.x;camY=robot.y;} };
+
+// ── Hz 측정 ──────────────────────────────────────────────────
+const hz={};
+function tick(k){ const n=Date.now(); (hz[k]=hz[k]||[]).push(n); hz[k]=hz[k].filter(t=>n-t<2000); }
+function getHz(k){ return (!hz[k]||hz[k].length<2)?null:(hz[k].length/2).toFixed(1); }
+setInterval(()=>{
+  const o=getHz('odom'); document.getElementById('hz-odom').textContent=(o?o+' Hz':'— Hz');
+  const s=getHz('scan'); document.getElementById('hz-scan').textContent=(s?s+' Hz':'— Hz');
+},1000);
+
+// ── rosbridge WebSocket ───────────────────────────────────────
+let ws=null, wsReady=false;
+const handlers={};
+
+function rosSend(o){ if(ws&&ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify(o)); }
+function rosSub(topic,type,cb){ handlers[topic]=cb; rosSend({op:'subscribe',topic,type}); }
+function rosPub(topic,type,msg){ rosSend({op:'publish',topic,msg}); }
+
 const dot      = document.getElementById('conn-dot');
-const label    = document.getElementById('conn-label');
-const overlay  = document.getElementById('overlay-msg');
-const overlaySub = document.getElementById('overlay-sub');
+const lbl      = document.getElementById('conn-label');
+const overlay  = document.getElementById('overlay');
 
-let ws = null;
-let wsReady = false;
-let reconnectTimer = null;
-const topicHandlers = {}; // topic → callback
-
-function rosSend(obj) {
-  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
-}
-
-function rosSubscribe(topic, type, cb) {
-  topicHandlers[topic] = cb;
-  rosSend({ op: 'subscribe', topic, type });
-}
-
-function rosPublish(topic, type, msg) {
-  rosSend({ op: 'publish', topic, msg });
-}
-
-function connectRos() {
-  if (ws) { try { ws.close(); } catch(e) {} }
-  ws = new WebSocket(`ws://${HOST}:${PORT}`);
-
-  ws.onopen = () => {
-    wsReady = true;
-    dot.className = 'connected';
-    label.textContent = '연결됨';
-    overlay.style.display = 'none';
-    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-    subscribeTopics();
+let retryTimer = null;
+function connect(){
+  if(ws){ try{ws.close();}catch(e){} }
+  ws = new WebSocket('ws://'+HOST+':'+PORT);
+  ws.onopen = ()=>{
+    wsReady=true;
+    dot.className='on'; lbl.textContent='연결됨';
+    overlay.style.display='none';
+    if(retryTimer){ clearTimeout(retryTimer); retryTimer=null; }
+    rosSub('/odom',          'nav_msgs/Odometry',        onOdom);
+    rosSub('/scan',          'sensor_msgs/LaserScan',    onScan);
+    rosSub('/map_meta',      'std_msgs/String',          onMapMeta);
+    rosSub('/battery_state', 'sensor_msgs/BatteryState', onBattery);
   };
-
-  ws.onmessage = (e) => {
-    let data; try { data = JSON.parse(e.data); } catch { return; }
-    if (data.op === 'publish' && topicHandlers[data.topic]) {
-      topicHandlers[data.topic](data.msg);
-    }
+  ws.onmessage = e=>{
+    let d; try{d=JSON.parse(e.data);}catch{return;}
+    if(d.op==='publish' && handlers[d.topic]) handlers[d.topic](d.msg);
   };
-
-  ws.onerror = () => {
-    dot.className = '';
-    label.textContent = '연결 오류';
-  };
-
-  ws.onclose = () => {
-    wsReady = false;
-    dot.className = '';
-    label.textContent = '연결 끊김';
-    overlay.style.display = 'block';
-    document.querySelector('#overlay-msg h3').textContent = '연결 끊김';
-    overlaySub.textContent = '3초 후 재연결 시도 중...';
-    reconnectTimer = setTimeout(connectRos, 3000);
+  ws.onerror = ()=>{ dot.className=''; lbl.textContent='오류'; };
+  ws.onclose = ()=>{
+    wsReady=false; dot.className=''; lbl.textContent='끊김';
+    overlay.style.display='block';
+    document.getElementById('ov-title').textContent='연결 끊김';
+    document.getElementById('ov-sub').textContent='3초 후 재연결...';
+    retryTimer=setTimeout(connect,3000);
   };
 }
+connect();
 
-connectRos();
+// ── 토픽 핸들러 ──────────────────────────────────────────────
+function onOdom(m){
+  tick('odom');
+  const pos=m.pose.pose.position, q=m.pose.pose.orientation;
+  const yaw=Math.atan2(2*(q.w*q.z+q.x*q.y),1-2*(q.y*q.y+q.z*q.z));
+  robot.x=pos.x; robot.y=pos.y; robot.theta=yaw;
+  robot.vx=m.twist.twist.linear.x;
+  robot.vz=m.twist.twist.angular.z;
+  if(!trail.length||Math.hypot(pos.x-trail.at(-1).x,pos.y-trail.at(-1).y)>0.05){
+    trail.push({x:pos.x,y:pos.y});
+    if(trail.length>MAX_TRAIL) trail.shift();
+  }
+  if(follow){camX=robot.x;camY=robot.y;}
+  document.getElementById('px').textContent  = robot.x.toFixed(3)+' m';
+  document.getElementById('py').textContent  = robot.y.toFixed(3)+' m';
+  document.getElementById('pth').textContent = (robot.theta*180/Math.PI).toFixed(1)+'°';
+  document.getElementById('vlin').textContent= robot.vx.toFixed(2)+' m/s';
+  document.getElementById('vang').textContent= robot.vz.toFixed(2)+' r/s';
+}
+function onScan(m){
+  tick('scan');
+  scan=m.ranges;
+  scanInfo={min:m.angle_min,inc:m.angle_increment};
+  document.getElementById('beams').textContent=scan.length;
+  const v=scan.filter(r=>isFinite(r)&&r>0);
+  if(v.length){
+    document.getElementById('rmin').textContent=Math.min(...v).toFixed(2)+' m';
+    document.getElementById('rmax').textContent=Math.max(...v).toFixed(2)+' m';
+  }
+}
+function onMapMeta(m){
+  try{ walls=JSON.parse(m.data).walls||[]; }catch(e){}
+}
+function onBattery(m){
+  const pct=(m.percentage*100).toFixed(0);
+  const el=document.getElementById('bat');
+  el.textContent=pct+'%';
+  el.className='v '+(pct>50?'ok':pct>20?'warn':'err');
+}
 
-// ── 토픽 구독 ─────────────────────────────────────────────
-function subscribeTopics() {
-  rosSubscribe('/odom', 'nav_msgs/Odometry', msg => {
-    tickHz('odom');
-    const p = msg.pose.pose.position;
-    const q = msg.pose.pose.orientation;
-    const yaw = Math.atan2(2*(q.w*q.z + q.x*q.y), 1 - 2*(q.y*q.y + q.z*q.z));
-    robot.x = p.x; robot.y = p.y; robot.theta = yaw;
-    robot.vx = msg.twist.twist.linear.x;
-    robot.vz = msg.twist.twist.angular.z;
-
-    if (trail.length === 0 || Math.hypot(p.x - trail.at(-1).x, p.y - trail.at(-1).y) > 0.05) {
-      trail.push({ x: p.x, y: p.y });
-      if (trail.length > MAX_TRAIL) trail.shift();
-    }
-    updatePosPanel();
-    if (follow) { camX = robot.x; camY = robot.y; }
-  });
-
-  rosSubscribe('/scan', 'sensor_msgs/LaserScan', msg => {
-    tickHz('scan');
-    scan = msg.ranges;
-    scanInfo = { angleMin: msg.angle_min, angleMax: msg.angle_max, angleInc: msg.angle_increment, rangeMax: msg.range_max };
-    document.getElementById('scan-beams').textContent = scan.length;
-    const valid = scan.filter(r => isFinite(r) && r > 0);
-    if (valid.length) {
-      document.getElementById('scan-min').textContent = Math.min(...valid).toFixed(2) + ' m';
-      document.getElementById('scan-max').textContent = Math.max(...valid).toFixed(2) + ' m';
-    }
-  });
-
-  rosSubscribe('/map_meta', 'std_msgs/String', msg => {
-    try { walls = JSON.parse(msg.data).walls || []; } catch(e) {}
-  });
-
-  rosSubscribe('/battery_state', 'sensor_msgs/BatteryState', msg => {
-    const pct = (msg.percentage * 100).toFixed(0);
-    const el = document.getElementById('battery-pct');
-    el.textContent = pct + '%';
-    el.className = 'value ' + (pct > 50 ? 'ok' : pct > 20 ? 'warn' : 'err');
+// ── cmd_vel ──────────────────────────────────────────────────
+function sendVel(lin,ang){
+  rosPub('/cmd_vel','geometry_msgs/Twist',{
+    linear:{x:lin,y:0,z:0}, angular:{x:0,y:0,z:ang}
   });
 }
 
-// ── cmd_vel ───────────────────────────────────────────────
-function sendVel(linear, angular) {
-  rosPublish('/cmd_vel', 'geometry_msgs/Twist', {
-    linear:  { x: linear, y: 0, z: 0 },
-    angular: { x: 0, y: 0, z: angular },
-  });
+// ── 텔레포트 ─────────────────────────────────────────────────
+let teleportMode = false;
+const btnTeleport = document.getElementById('btn-teleport');
+
+function setTeleportMode(on) {
+  teleportMode = on;
+  canvas.style.cursor = on ? 'crosshair' : 'grab';
+  btnTeleport.style.background    = on ? 'rgba(99,102,241,.45)' : 'rgba(99,102,241,.15)';
+  btnTeleport.style.borderColor   = on ? 'rgba(99,102,241,.9)'  : 'rgba(99,102,241,.4)';
+  btnTeleport.style.color         = on ? '#ffffff' : '#a5b4fc';
+  btnTeleport.textContent         = on ? '📍 텔레포트 ON' : '📍 텔레포트';
 }
 
-// ── 키보드 ────────────────────────────────────────────────
-const keys = {};
-document.addEventListener('keydown', e => {
-  keys[e.key.toLowerCase()] = true;
-  if (e.key === 'r' || e.key === 'R') { trail = []; }
-  if (e.key === '0') { if(follow) { camX = robot.x; camY = robot.y; } scale = 30; }
-  if (e.key === '+' || e.key === '=') scale = Math.min(scale * 1.2, 200);
-  if (e.key === '-' || e.key === '_') scale = Math.max(scale / 1.2, 5);
-  if (e.key === ' ') { e.preventDefault(); sendVel(0, 0); }
+btnTeleport.addEventListener('click', () => setTeleportMode(!teleportMode));
+
+// 클릭 시 좌표를 월드 좌표로 변환 → /teleport 발행
+function s2w(sx, sy) {
+  return [
+    camX + (sx - canvas.width  / 2) / scale,
+    camY - (sy - canvas.height / 2) / scale,
+  ];
+}
+
+// 텔레포트 클릭 이펙트 (원 애니메이션)
+let clickFx = null;
+function spawnClickFx(wx, wy) {
+  clickFx = { wx, wy, r: 0, alpha: 1.0 };
+}
+
+const keys={};
+document.addEventListener('keydown',e=>{
+  keys[e.key.toLowerCase()]=true;
+  if(e.key==='r'||e.key==='R') trail=[];
+  if(e.key==='t'||e.key==='T') setTeleportMode(!teleportMode);
+  if(e.key==='0'){ scale=35; if(follow){camX=robot.x;camY=robot.y;} }
+  if(e.key==='+'||e.key==='=') scale=Math.min(scale*1.2,200);
+  if(e.key==='-'||e.key==='_') scale=Math.max(scale/1.2,5);
+  if(e.key===' '){ e.preventDefault(); sendVel(0,0); }
+  if(e.key==='Escape') setTeleportMode(false);
 });
-document.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+document.addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
+setInterval(()=>{
+  if(!wsReady) return;
+  let lin=0,ang=0;
+  if(keys['w']) lin+=0.5;
+  if(keys['s']) lin-=0.5;
+  if(keys['a']) ang+=0.8;
+  if(keys['d']) ang-=0.8;
+  if(lin||ang) sendVel(lin,ang);
+},100);
 
-// cmd_vel 발행 루프 (10Hz)
-setInterval(() => {
-  if (!wsReady) return;
-  let lin = 0, ang = 0;
-  if (keys['w']) lin += 0.5;
-  if (keys['s']) lin -= 0.5;
-  if (keys['a']) ang += 0.8;
-  if (keys['d']) ang -= 0.8;
-  if (lin !== 0 || ang !== 0) sendVel(lin, ang);
-}, 100);
-
-// ── 마우스 드래그 (카메라 이동) ───────────────────────────
-let drag = null;
-canvas.addEventListener('mousedown', e => {
-  follow = false;
-  document.getElementById('opt-follow').checked = false;
-  drag = { sx: e.clientX, sy: e.clientY, cx: camX, cy: camY };
+// ── 마우스 드래그 / 텔레포트 ────────────────────────────────
+let drag=null;
+canvas.addEventListener('mousedown',e=>{
+  if(teleportMode) return; // 텔레포트 모드에서는 드래그 없음
+  follow=false; document.getElementById('opt-follow').checked=false;
+  drag={sx:e.clientX,sy:e.clientY,cx:camX,cy:camY};
 });
-canvas.addEventListener('mousemove', e => {
-  if (!drag) return;
-  camX = drag.cx - (e.clientX - drag.sx) / scale;
-  camY = drag.cy + (e.clientY - drag.sy) / scale;
+canvas.addEventListener('mousemove',e=>{
+  if(!drag) return;
+  camX=drag.cx-(e.clientX-drag.sx)/scale;
+  camY=drag.cy+(e.clientY-drag.sy)/scale;
 });
-canvas.addEventListener('mouseup', () => { drag = null; });
-canvas.addEventListener('wheel', e => {
+canvas.addEventListener('mouseup',e=>{
+  drag=null;
+});
+canvas.addEventListener('click',e=>{
+  if(!teleportMode||!wsReady) return;
+  // 캔버스 내 좌표로 변환 (툴바 높이 36px 보정)
+  const rect=canvas.getBoundingClientRect();
+  const sx=e.clientX-rect.left;
+  const sy=e.clientY-rect.top;
+  const [wx,wy]=s2w(sx,sy);
+  rosPub('/teleport','geometry_msgs/Pose2D',{x:wx,y:wy,theta:robot.theta});
+  trail=[];  // 궤적 초기화
+  spawnClickFx(wx,wy);
+  // 카메라도 그 위치로
+  if(follow){ camX=wx; camY=wy; }
+});
+canvas.addEventListener('wheel',e=>{
   e.preventDefault();
-  scale *= e.deltaY < 0 ? 1.1 : 0.9;
-  scale = Math.min(200, Math.max(5, scale));
-}, { passive: false });
+  scale*=e.deltaY<0?1.1:0.9;
+  scale=Math.min(200,Math.max(5,scale));
+},{passive:false});
 
-// ── 패널 업데이트 ─────────────────────────────────────────
-function updatePosPanel() {
-  document.getElementById('pos-x').textContent     = robot.x.toFixed(3) + ' m';
-  document.getElementById('pos-y').textContent     = robot.y.toFixed(3) + ' m';
-  document.getElementById('pos-theta').textContent = (robot.theta * 180 / Math.PI).toFixed(1) + '°';
-  document.getElementById('vel-lin').textContent   = robot.vx.toFixed(2) + ' m/s';
-  document.getElementById('vel-ang').textContent   = robot.vz.toFixed(2) + ' r/s';
-}
+// ── 렌더링 ──────────────────────────────────────────────────
+function draw(){
+  const W=canvas.width, H=canvas.height;
+  if(!W||!H) return;
 
-// Hz 표시 갱신 (1Hz)
-setInterval(() => {
-  const ho = getHz('odom'); document.getElementById('hz-odom').textContent = ho ? ho + ' Hz' : '— Hz';
-  const hs = getHz('scan'); document.getElementById('hz-scan').textContent = hs ? hs + ' Hz' : '— Hz';
-}, 1000);
-
-// ── 렌더 ──────────────────────────────────────────────────
-function draw() {
-  const W = canvas.width, H = canvas.height;
-  ctx.clearRect(0, 0, W, H);
-
-  // 배경
-  ctx.fillStyle = '#0d1117';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle='#111820';
+  ctx.fillRect(0,0,W,H);
 
   // 격자
-  if (showGrid) drawGrid();
+  if(showGrid){
+    const step=1;
+    const sx0=Math.floor((camX-W/scale/2)/step)*step;
+    const sy0=Math.floor((camY-H/scale/2)/step)*step;
+    ctx.strokeStyle='#1e2a38'; ctx.lineWidth=0.5;
+    for(let wx=sx0;wx<sx0+W/scale+2;wx+=step){
+      const[x]=w2s(wx,0); ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();
+    }
+    for(let wy=sy0;wy<sy0+H/scale+2;wy+=step){
+      const[,y]=w2s(0,wy); ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+    }
+    // 5m 강조선
+    ctx.strokeStyle='#263040'; ctx.lineWidth=1;
+    for(let wx=Math.floor(sx0/5)*5;wx<sx0+W/scale+6;wx+=5){
+      const[x]=w2s(wx,0); ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();
+    }
+    for(let wy=Math.floor(sy0/5)*5;wy<sy0+H/scale+6;wy+=5){
+      const[,y]=w2s(0,wy); ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+    }
+    // 눈금 레이블
+    ctx.fillStyle='#3d4f63'; ctx.font='10px monospace'; ctx.textAlign='left';
+    for(let wx=Math.floor(sx0/5)*5;wx<sx0+W/scale+6;wx+=5){
+      const[x,y]=w2s(wx,camY+(H/scale/2)-0.5); ctx.fillText(wx,x+2,y);
+    }
+  }
 
   // 벽
-  if (walls.length) drawWalls();
+  if(walls.length){
+    ctx.strokeStyle='#3b82f6'; ctx.lineWidth=2.5; ctx.lineCap='round';
+    for(const[x1,y1,x2,y2] of walls){
+      const[sx1,sy1]=w2s(x1,y1),[sx2,sy2]=w2s(x2,y2);
+      ctx.beginPath();ctx.moveTo(sx1,sy1);ctx.lineTo(sx2,sy2);ctx.stroke();
+    }
+  }
 
   // 궤적
-  if (showTrail && trail.length > 1) drawTrail();
+  if(showTrail&&trail.length>1){
+    ctx.strokeStyle='#6366f1'; ctx.lineWidth=1.5; ctx.globalAlpha=0.5;
+    ctx.beginPath();
+    for(let i=0;i<trail.length;i++){
+      const[x,y]=w2s(trail[i].x,trail[i].y);
+      i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+    }
+    ctx.stroke(); ctx.globalAlpha=1;
+  }
 
   // LiDAR
-  if (showScan && scan) drawScan();
+  if(showScan&&scan){
+    const{min:aMin,inc:aInc}=scanInfo;
+    const[rx,ry]=w2s(robot.x,robot.y);
+    for(let i=0;i<scan.length;i++){
+      const r=scan[i];
+      if(!isFinite(r)||r<=0) continue;
+      const a=robot.theta+aMin+i*aInc;
+      const ex=robot.x+r*Math.cos(a), ey=robot.y+r*Math.sin(a);
+      const[sx,sy]=w2s(ex,ey);
+      ctx.strokeStyle=r<0.5?'rgba(250,204,21,.15)':'rgba(34,197,94,.08)';
+      ctx.lineWidth=0.5;
+      ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(sx,sy);ctx.stroke();
+      ctx.fillStyle=r<0.5?'#facc15':'#22c55e';
+      ctx.globalAlpha=r<0.5?0.9:0.7;
+      ctx.beginPath();ctx.arc(sx,sy,2,0,Math.PI*2);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
 
   // 로봇
-  drawRobot();
-
-  // 원점 표시
-  drawOrigin();
-}
-
-function drawGrid() {
-  const step = 1; // 1m 격자
-  const [ox, oy] = w2s(0, 0);
-  ctx.strokeStyle = '#1c2128';
-  ctx.lineWidth = 0.5;
-
-  const startX = Math.floor((camX - W / scale / 2) / step) * step;
-  const startY = Math.floor((camY - H / scale / 2) / step) * step;
-  const endX   = startX + (W / scale) + step * 2;
-  const endY   = startY + (H / scale) + step * 2;
-
-  for (let wx = startX; wx <= endX; wx += step) {
-    const [sx] = w2s(wx, 0);
-    ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, H); ctx.stroke();
-  }
-  for (let wy = startY; wy <= endY; wy += step) {
-    const [, sy] = w2s(0, wy);
-    ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(W, sy); ctx.stroke();
-  }
-
-  // 5m 강조
-  ctx.strokeStyle = '#21262d';
-  ctx.lineWidth = 1;
-  for (let wx = Math.floor(startX / 5) * 5; wx <= endX; wx += 5) {
-    const [sx] = w2s(wx, 0);
-    ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, H); ctx.stroke();
-  }
-  for (let wy = Math.floor(startY / 5) * 5; wy <= endY; wy += 5) {
-    const [, sy] = w2s(0, wy);
-    ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(W, sy); ctx.stroke();
-  }
-}
-
-function drawWalls() {
-  ctx.strokeStyle = '#3b82f6';
-  ctx.lineWidth = 2;
-  ctx.lineCap = 'round';
-  for (const [x1, y1, x2, y2] of walls) {
-    const [sx1, sy1] = w2s(x1, y1);
-    const [sx2, sy2] = w2s(x2, y2);
-    ctx.beginPath();
-    ctx.moveTo(sx1, sy1);
-    ctx.lineTo(sx2, sy2);
-    ctx.stroke();
-  }
-}
-
-function drawTrail() {
-  ctx.strokeStyle = '#6366f1';
-  ctx.lineWidth = 1.5;
-  ctx.globalAlpha = 0.5;
-  ctx.beginPath();
-  for (let i = 0; i < trail.length; i++) {
-    const [sx, sy] = w2s(trail[i].x, trail[i].y);
-    i === 0 ? ctx.moveTo(sx, sy) : ctx.lineTo(sx, sy);
-  }
-  ctx.stroke();
-  ctx.globalAlpha = 1.0;
-}
-
-function drawScan() {
-  const { angleMin, angleInc } = scanInfo;
-  const rx = robot.x, ry = robot.y, th = robot.theta;
-  const [srx, sry] = w2s(rx, ry);
-
-  for (let i = 0; i < scan.length; i++) {
-    const r = scan[i];
-    if (!isFinite(r) || r <= 0) continue;
-    const angle = th + angleMin + i * angleInc;
-    const ex = rx + r * Math.cos(angle);
-    const ey = ry + r * Math.sin(angle);
-    const [sex, sey] = w2s(ex, ey);
-
-    // beam line (faint)
-    ctx.strokeStyle = r < 0.5 ? 'rgba(250,204,21,0.15)' : 'rgba(34,197,94,0.08)';
-    ctx.lineWidth = 0.5;
-    ctx.beginPath(); ctx.moveTo(srx, sry); ctx.lineTo(sex, sey); ctx.stroke();
-
-    // endpoint dot
-    const dotColor = r < 0.5 ? '#facc15' : '#22c55e';
-    ctx.fillStyle = dotColor;
-    ctx.globalAlpha = r < 0.5 ? 0.9 : 0.7;
-    ctx.beginPath(); ctx.arc(sex, sey, 2, 0, Math.PI * 2); ctx.fill();
-  }
-  ctx.globalAlpha = 1.0;
-}
-
-function drawRobot() {
-  const [sx, sy] = w2s(robot.x, robot.y);
-  const r = 0.25 * scale; // 0.25m radius
-  const th = -robot.theta; // Canvas Y축 반전
-
-  ctx.save();
-  ctx.translate(sx, sy);
-  ctx.rotate(th);
-
-  // 로봇 몸체 (원)
-  ctx.beginPath();
-  ctx.arc(0, 0, r, 0, Math.PI * 2);
-  ctx.fillStyle = '#1d4ed8';
-  ctx.fill();
-  ctx.strokeStyle = '#60a5fa';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // 전방 방향 화살표
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(r * 1.4, 0);
-  ctx.strokeStyle = '#f97316';
-  ctx.lineWidth = 2.5;
-  ctx.stroke();
-
-  // 화살 끝
-  ctx.beginPath();
-  ctx.moveTo(r * 1.4, 0);
-  ctx.lineTo(r * 1.0, -r * 0.3);
-  ctx.lineTo(r * 1.0, r * 0.3);
-  ctx.closePath();
-  ctx.fillStyle = '#f97316';
-  ctx.fill();
-
+  const[rx,ry]=w2s(robot.x,robot.y);
+  const rr=Math.max(8, 0.3*scale);
+  ctx.save(); ctx.translate(rx,ry); ctx.rotate(-robot.theta);
+  ctx.beginPath(); ctx.arc(0,0,rr,0,Math.PI*2);
+  ctx.fillStyle='#1d4ed8'; ctx.fill();
+  ctx.strokeStyle='#60a5fa'; ctx.lineWidth=2; ctx.stroke();
+  // 전방 화살
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(rr*1.5,0);
+  ctx.strokeStyle='#f97316'; ctx.lineWidth=2.5; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(rr*1.5,0);
+  ctx.lineTo(rr*1.1,-rr*.35); ctx.lineTo(rr*1.1,rr*.35); ctx.closePath();
+  ctx.fillStyle='#f97316'; ctx.fill();
   ctx.restore();
+  // 이름
+  ctx.fillStyle='#e6edf3'; ctx.font='12px monospace'; ctx.textAlign='center';
+  ctx.fillText(RNAME,rx,ry-rr-5);
 
-  // 이름 레이블
-  ctx.fillStyle = '#e6edf3';
-  ctx.font = `${Math.max(10, scale * 0.35)}px monospace`;
-  ctx.textAlign = 'center';
-  ctx.fillText(RNAME, sx, sy - r - 6);
+  // 원점 십자
+  const[ox,oy]=w2s(0,0);
+  if(ox>-10&&ox<W+10&&oy>-10&&oy<H+10){
+    ctx.lineWidth=1.5;
+    ctx.strokeStyle='#f85149'; ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+scale,oy);ctx.stroke();
+    ctx.strokeStyle='#3fb950'; ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox,oy-scale);ctx.stroke();
+    ctx.fillStyle='#8b949e'; ctx.font='10px monospace'; ctx.textAlign='left';
+    ctx.fillText('O',ox+3,oy-3);
+  }
+
+  // 텔레포트 클릭 이펙트
+  if(clickFx){
+    const[cx,cy]=w2s(clickFx.wx,clickFx.wy);
+    ctx.beginPath(); ctx.arc(cx,cy,clickFx.r*scale,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(167,139,250,${clickFx.alpha})`;
+    ctx.lineWidth=2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx,cy,4,0,Math.PI*2);
+    ctx.fillStyle=`rgba(167,139,250,${clickFx.alpha})`; ctx.fill();
+    clickFx.r    +=0.04;
+    clickFx.alpha-=0.04;
+    if(clickFx.alpha<=0) clickFx=null;
+  }
+
+  // 텔레포트 모드 오버레이 힌트
+  if(teleportMode){
+    ctx.fillStyle='rgba(99,102,241,.18)';
+    ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(165,180,252,.9)';
+    ctx.font='bold 14px monospace';
+    ctx.textAlign='center';
+    ctx.fillText('📍 텔레포트 모드 — 이동할 위치를 클릭하세요  (ESC/T 로 해제)',W/2,H-20);
+  }
 }
 
-function drawOrigin() {
-  const [ox, oy] = w2s(0, 0);
-  if (ox < -20 || ox > canvas.width + 20 || oy < -20 || oy > canvas.height + 20) return;
-  ctx.lineWidth = 1.5;
-  // X축 (빨강)
-  ctx.strokeStyle = '#f85149';
-  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + scale, oy); ctx.stroke();
-  // Y축 (초록)
-  ctx.strokeStyle = '#3fb950';
-  ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox, oy - scale); ctx.stroke();
-  ctx.fillStyle = '#8b949e';
-  ctx.font = '10px monospace';
-  ctx.textAlign = 'left';
-  ctx.fillText('O', ox + 3, oy - 3);
-}
-
-// ── 렌더 루프 ─────────────────────────────────────────────
-function loop() {
-  draw();
-  requestAnimationFrame(loop);
-}
-loop();
+function loop(){ draw(); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>
