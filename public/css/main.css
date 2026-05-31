@@ -451,6 +451,60 @@ body {
   to   { transform: translateX(0);    opacity: 1; }
 }
 
+/* ---- 시뮬레이션 연결 버튼 ---- */
+.sim-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg-overlay);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: default;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.sim-btn:not(:disabled) {
+  cursor: pointer;
+}
+
+.sim-btn:not(:disabled):hover {
+  border-color: rgba(99, 102, 241, 0.6);
+  background: rgba(99, 102, 241, 0.1);
+  color: #c4b5fd;
+}
+
+.sim-btn__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+  transition: all 0.3s;
+}
+
+.sim-btn--active {
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.12);
+  color: #a5b4fc;
+}
+
+.sim-btn--active .sim-btn__dot {
+  background: #818cf8;
+  box-shadow: 0 0 6px #818cf8;
+  animation: pulse 1.6s infinite;
+}
+
+.sim-btn--active:not(:disabled):hover {
+  border-color: rgba(99, 102, 241, 0.8);
+  background: rgba(99, 102, 241, 0.22);
+  color: #c4b5fd;
+}
+
 /* ---- 반응형 ---- */
 @media (max-width: 768px) {
   .app-main {
