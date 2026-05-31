@@ -7,41 +7,59 @@ Node.js + rosbridge WebSocket 기반 단일 로봇 웹 대시보드.
 
 ## 실행 방법
 
-### 1. 의존성 설치
+### 1. 저장소 클론 및 의존성 설치
 
 ```bash
+git clone https://github.com/SandGround-kr/ros2-robot-dashboard.git
 cd ros2-robot-dashboard
 npm install
 ```
 
 ### 2. 환경 설정
 
-`.env` 파일을 수정해 로봇의 rosbridge 주소와 이름을 입력합니다.
+`.env` 파일을 열어 로봇 이름을 입력합니다. (로봇에 직접 배포 시 HOST는 localhost 그대로)
 
 ```env
 PORT=3000                  # 웹 서버 포트
-ROSBRIDGE_HOST=localhost   # rosbridge 호스트 (실제 로봇 IP)
+ROSBRIDGE_HOST=localhost   # 로봇에 직접 배포 시 localhost
 ROSBRIDGE_PORT=9090        # rosbridge 포트 (기본 9090)
 ROBOT_NAME=내 로봇         # 대시보드에 표시될 로봇 이름
 ```
 
-### 3. 서버 실행
+---
+
+## 실제 로봇에서 실행
+
+rosbridge 설치부터 서버 실행까지 **명령 하나**로 처리됩니다.
+
+### rosbridge 설치 (최초 1회)
 
 ```bash
-# 일반 실행
-npm start
-
-# 개발 모드 (코드 변경 시 자동 재시작)
-npm run dev
+sudo apt install ros-humble-rosbridge-suite
+# ROS2 버전이 다르면 humble → iron / jazzy 등으로 변경
 ```
 
-브라우저에서 `http://localhost:3000` 접속
+### 실행
+
+```bash
+npm run robot
+```
+
+이 명령 하나로 다음이 자동 처리됩니다:
+1. ROS2 환경 로드 (`/opt/ros/humble/setup.bash`)
+2. rosbridge WebSocket 서버 시작
+3. 대시보드 웹 서버 시작
+4. 종료 시 rosbridge 자동 정리
+
+브라우저에서 `http://로봇IP:3000` 접속하면 됩니다.
+
+> ROS2 버전이 humble이 아니라면: `ROS_DISTRO=iron npm run robot`
 
 ---
 
 ## 시뮬레이션 실행 (실제 로봇 없이 테스트)
 
-실제 ROS2 환경 없이 가상 로봇으로 대시보드를 테스트할 수 있습니다.
+ROS2 없이 Windows/Mac/Linux 어디서나 가상 로봇으로 테스트할 수 있습니다.
 
 **터미널 1 — 대시보드 서버**
 ```bash
@@ -108,6 +126,7 @@ ros2-robot-dashboard/
 ## 업데이트 내역
 
 ### 2026-05-31
+- **`npm run robot` 추가** — rosbridge 자동 실행 + 대시보드 서버를 한 명령으로 처리하는 `scripts/start-robot.sh` 추가
 - **시뮬레이션 분리** — 카드 내 시뮬 링크 제거, 앱 헤더 우측에 시뮬 연결 버튼으로 이동
 - TopicDiscovery가 `/odom`, `/scan` 토픽 감지 시 버튼 자동 활성화 (보라색 점 애니메이션)
 - 연결 끊기면 버튼 자동 비활성화
