@@ -134,7 +134,10 @@ class RobotCard {
           </span>
           <input class="form-input js-topic-search" placeholder="필터..." style="width:130px;padding:4px 8px;font-size:12px;">
         </div>
-        <button class="btn btn--secondary btn--sm js-refresh-topics" title="즉시 새로고침">↺</button>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn--ghost btn--sm js-open-viewer" title="뷰어 열기" style="display:none;">⊞ 뷰어</button>
+          <button class="btn btn--secondary btn--sm js-refresh-topics" title="즉시 새로고침">↺</button>
+        </div>
       </div>
 
       <div class="topic-groups js-topic-groups">
@@ -142,31 +145,14 @@ class RobotCard {
           ROS2 연결 후 토픽을 자동으로 감지합니다...
         </div>
       </div>
-
-      <!-- 실시간 메시지 뷰어 (탭) -->
-      <div class="topic-viewer js-topic-viewer" style="display:none;">
-        <div class="topic-viewer__tabs js-viewer-tabs"></div>
-        <div class="topic-viewer__header">
-          <span class="topic-hz js-viewer-hz" style="font-size:11px;">— Hz</span>
-          <button class="btn btn--ghost btn--sm js-viewer-close">✕</button>
-        </div>
-        <pre class="topic-viewer__body js-viewer-body">구독 대기 중...</pre>
-      </div>
     `;
 
-    const viewer     = container.querySelector('.js-topic-viewer');
-    const viewerTabs = container.querySelector('.js-viewer-tabs');
-    const viewerHz   = container.querySelector('.js-viewer-hz');
-    const viewerBody = container.querySelector('.js-viewer-body');
-    const searchEl   = container.querySelector('.js-topic-search');
+    container.querySelector('.js-topic-search').addEventListener('input', () => this._refreshTopicTab());
 
-    container.querySelector('.js-viewer-close').addEventListener('click', () => {
-      viewer.style.display = 'none';
+    container.querySelector('.js-open-viewer').addEventListener('click', () => {
+      if (this._popup) this._popup.style.display = 'flex';
     });
 
-    searchEl.addEventListener('input', () => this._refreshTopicTab());
-
-    // 즉시 새로고침 버튼
     container.querySelector('.js-refresh-topics').addEventListener('click', async () => {
       if (!this.discovery) return;
       const btn = container.querySelector('.js-refresh-topics');
@@ -186,11 +172,6 @@ class RobotCard {
     });
 
     this._topicTabContainer = container;
-    this._topicViewer = {
-      el: viewer, tabs: viewerTabs,
-      hz: viewerHz, body: viewerBody,
-      activeTopic: null,
-    };
   }
 
   // 토픽 탭 전체 재렌더 (discovery 업데이트 or 검색어 변경 시 호출)
@@ -265,13 +246,15 @@ class RobotCard {
 
       // 구독 버튼
       section.querySelectorAll('.js-sub-btn').forEach(btn => {
-        btn.addEventListener('click', () => this._toggleSubscribe(btn, viewer));
+        btn.addEventListener('click', () => this._toggleSubscribe(btn));
       });
       section.querySelectorAll('.topic-name').forEach(el => {
         el.style.cursor = 'pointer';
         el.addEventListener('click', () => {
           const name = el.closest('tr').dataset.topic;
-          if (this._subscribedTopics.has(name)) this._viewerSwitchTab(name);
+          if (this._subscribedTopics.has(name) && this._popup) {
+            this._popup.style.display = 'flex';
+          }
         });
       });
 
@@ -279,84 +262,137 @@ class RobotCard {
     }
   }
 
-  _toggleSubscribe(btn, viewer) {
+  _toggleSubscribe(btn) {
     const name = btn.dataset.name;
     const type = btn.dataset.type;
 
     if (this._subscribedTopics.has(name)) {
-      // ── 구독 해제 ──────────────────────────────────────
       this.topicHandler.unsubscribe(name);
       this._subscribedTopics.delete(name);
       btn.className   = 'btn btn--sm btn--success js-sub-btn';
       btn.textContent = '구독';
-      this._viewerRemoveTab(name);
+      this._popupRemovePanel(name);
     } else {
-      // ── 구독 시작 ──────────────────────────────────────
       this.topicHandler.subscribe(name, type, (msg, entry) => {
-        // hzEl 동적 조회 — 테이블 재생성 후에도 항상 최신 DOM 참조
         const hzEl = this.el.querySelector(`.js-hz-${this._topicKey(name)}`);
         if (hzEl) hzEl.textContent = `${entry.hz} Hz`;
-        // 이 토픽이 현재 뷰어 활성 탭일 때만 업데이트
-        if (this._topicViewer && this._topicViewer.activeTopic === name) {
-          this._topicViewer.hz.textContent   = `${entry.hz} Hz`;
-          this._topicViewer.body.textContent = JSON.stringify(msg, null, 2);
+        const panel = this._popupPanels && this._popupPanels.get(name);
+        if (panel) {
+          panel.hzEl.textContent   = `${entry.hz} Hz`;
+          panel.bodyEl.textContent = JSON.stringify(msg, null, 2);
         }
       });
       this._subscribedTopics.set(name, true);
       btn.className   = 'btn btn--sm btn--danger js-sub-btn';
       btn.textContent = '해제';
-      this._viewerAddTab(name);
+      this._popupAddPanel(name);
     }
   }
 
-  // 뷰어에 탭 추가 후 해당 탭으로 전환
-  _viewerAddTab(name) {
-    const v = this._topicViewer;
-    if (!v) return;
+  // ═══════════════════════════════════════════════
+  // 플로팅 토픽 뷰어 팝업
+  // ═══════════════════════════════════════════════
+  _ensurePopup() {
+    if (this._popup) return;
 
-    // 이미 탭 존재하면 그냥 전환만
-    const existing = v.tabs.querySelector(`[data-topic="${CSS.escape(name)}"]`);
-    if (existing) { this._viewerSwitchTab(name); return; }
+    const popup = document.createElement('div');
+    popup.className = 'topic-popup';
+    popup.style.display = 'none';
+    popup.innerHTML = `
+      <div class="topic-popup__titlebar js-popup-drag">
+        <span class="topic-popup__title">토픽 뷰어</span>
+        <div class="topic-popup__actions">
+          <span class="topic-popup__count js-popup-count">0개 구독 중</span>
+          <button class="topic-popup__close-btn js-popup-close" title="닫기">✕</button>
+        </div>
+      </div>
+      <div class="topic-popup__grid js-popup-grid"></div>
+    `;
 
-    const tab = document.createElement('button');
-    tab.className   = 'viewer-tab';
-    tab.dataset.topic = name;
-    tab.title       = name;
-    tab.textContent = name.split('/').pop() || name; // 마지막 세그먼트만 표시
-    tab.addEventListener('click', () => this._viewerSwitchTab(name));
-    v.tabs.appendChild(tab);
+    document.body.appendChild(popup);
+    this._popup      = popup;
+    this._popupPanels = new Map();
 
-    v.el.style.display = 'flex';
-    this._viewerSwitchTab(name);
+    popup.querySelector('.js-popup-close').addEventListener('click', () => {
+      popup.style.display = 'none';
+      if (this._topicTabContainer) {
+        const btn = this._topicTabContainer.querySelector('.js-open-viewer');
+        if (btn) btn.style.display = '';
+      }
+    });
+
+    this._makeDraggable(popup, popup.querySelector('.js-popup-drag'));
   }
 
-  // 뷰어에서 탭 제거
-  _viewerRemoveTab(name) {
-    const v = this._topicViewer;
-    if (!v) return;
+  _makeDraggable(el, handle) {
+    let ox = 0, oy = 0, sx = 0, sy = 0;
+    handle.addEventListener('mousedown', e => {
+      if (e.target.closest('button')) return;
+      const rect = el.getBoundingClientRect();
+      ox = rect.left; oy = rect.top;
+      sx = e.clientX; sy = e.clientY;
+      el.style.right = 'auto'; el.style.bottom = 'auto';
+      el.style.left = ox + 'px'; el.style.top = oy + 'px';
 
-    const tab = v.tabs.querySelector(`[data-topic="${CSS.escape(name)}"]`);
-    if (tab) tab.remove();
+      const onMove = e => {
+        el.style.left = (ox + e.clientX - sx) + 'px';
+        el.style.top  = (oy + e.clientY - sy) + 'px';
+      };
+      const onUp = () => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
 
-    if (v.activeTopic === name) {
-      // 다른 탭으로 전환하거나 뷰어 닫기
-      const next = v.tabs.querySelector('.viewer-tab');
-      if (next) this._viewerSwitchTab(next.dataset.topic);
-      else { v.el.style.display = 'none'; v.activeTopic = null; }
+  _popupAddPanel(name) {
+    this._ensurePopup();
+    if (this._popupPanels.has(name)) return;
+
+    const panel = document.createElement('div');
+    panel.className = 'topic-panel';
+    panel.innerHTML = `
+      <div class="topic-panel__header">
+        <span class="topic-panel__name" title="${this._esc(name)}">${this._esc(name)}</span>
+        <span class="topic-panel__hz">— Hz</span>
+      </div>
+      <pre class="topic-panel__body">메시지 대기 중...</pre>
+    `;
+
+    this._popup.querySelector('.js-popup-grid').appendChild(panel);
+    this._popupPanels.set(name, {
+      el:     panel,
+      hzEl:   panel.querySelector('.topic-panel__hz'),
+      bodyEl: panel.querySelector('.topic-panel__body'),
+    });
+    this._updatePopupLayout();
+    this._popup.style.display = 'flex';
+  }
+
+  _popupRemovePanel(name) {
+    if (!this._popup || !this._popupPanels.has(name)) return;
+    this._popupPanels.get(name).el.remove();
+    this._popupPanels.delete(name);
+    this._updatePopupLayout();
+    if (this._popupPanels.size === 0) this._popup.style.display = 'none';
+  }
+
+  _updatePopupLayout() {
+    if (!this._popup) return;
+    const count = this._popupPanels.size;
+    const grid  = this._popup.querySelector('.js-popup-grid');
+    const cols  = count <= 1 ? 1 : count <= 4 ? 2 : 3;
+    grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+    const countEl = this._popup.querySelector('.js-popup-count');
+    if (countEl) countEl.textContent = `${count}개 구독 중`;
+
+    if (this._topicTabContainer) {
+      const openBtn = this._topicTabContainer.querySelector('.js-open-viewer');
+      if (openBtn) openBtn.style.display = count > 0 ? '' : 'none';
     }
-  }
-
-  // 탭 전환
-  _viewerSwitchTab(name) {
-    const v = this._topicViewer;
-    if (!v) return;
-    v.activeTopic = name;
-    v.tabs.querySelectorAll('.viewer-tab').forEach(t =>
-      t.classList.toggle('viewer-tab--active', t.dataset.topic === name)
-    );
-    v.hz.textContent   = '— Hz';
-    v.body.textContent = '메시지 대기 중...';
-    v.el.style.display = 'flex';
   }
 
   _renderTopicRows(tbody, list, viewer, viewerName, viewerHz, viewerBody) {
@@ -970,11 +1006,10 @@ class RobotCard {
       // 사라진 토픽/노드 → UI에서 제거
       this.discovery.on('removed_detected', ({ topics, nodes }) => {
         topics.forEach(t => {
-          // 구독 중이면 자동 해제
           if (this._subscribedTopics.has(t.name)) {
             this.topicHandler.unsubscribe(t.name);
             this._subscribedTopics.delete(t.name);
-            this._viewerRemoveTab(t.name);
+            this._popupRemovePanel(t.name);
           }
         });
 
@@ -1001,6 +1036,7 @@ class RobotCard {
     clearInterval(this._bagTimer);
     if (this._keydownHandler) this.el.removeEventListener('keydown', this._keydownHandler);
     if (this._keyupHandler)   this.el.removeEventListener('keyup',   this._keyupHandler);
+    if (this._popup) { this._popup.remove(); this._popup = null; }
     this.el.remove();
   }
 }
