@@ -18,6 +18,11 @@
       </div>
     </div>
     <div class="app-header__right">
+      <button id="update-btn" class="update-btn" style="display:none" title="업데이트 가능">
+        <span class="update-btn__icon">↑</span>
+        <span class="update-btn__label">업데이트</span>
+        <span class="update-btn__badge js-update-badge"></span>
+      </button>
       <button id="sim-connect-btn" class="sim-btn" title="시뮬레이션 뷰어 열기" disabled>
         <span class="sim-btn__dot"></span>
         <span>시뮬레이션</span>
@@ -27,6 +32,36 @@
       </span>
     </div>
   </header>
+
+  <!-- 업데이트 모달 -->
+  <div id="update-modal" class="update-modal" style="display:none">
+    <div class="update-modal__box">
+      <div class="update-modal__header">
+        <span class="update-modal__title">업데이트 가능</span>
+        <button class="update-modal__close js-update-modal-close">✕</button>
+      </div>
+      <div class="update-modal__versions">
+        <span class="update-modal__ver update-modal__ver--current js-ver-current">—</span>
+        <span class="update-modal__arrow">→</span>
+        <span class="update-modal__ver update-modal__ver--latest js-ver-latest">—</span>
+      </div>
+      <div class="update-modal__commits-title">변경 사항</div>
+      <ul class="update-modal__commits js-update-commits"></ul>
+      <div class="update-modal__actions">
+        <button class="btn btn--secondary js-update-modal-close">취소</button>
+        <button class="btn btn--primary js-update-apply">업데이트 적용</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 업데이트 진행 오버레이 -->
+  <div id="update-overlay" class="update-overlay" style="display:none">
+    <div class="update-overlay__box">
+      <div class="update-overlay__spinner"></div>
+      <div class="update-overlay__title js-overlay-title">업데이트 적용 중...</div>
+      <div class="update-overlay__sub js-overlay-sub">잠시만 기다려주세요</div>
+    </div>
+  </div>
 
   <main class="app-main">
     <div id="dashboard"></div>

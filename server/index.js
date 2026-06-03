@@ -6,6 +6,7 @@ const registry = require('./robots/RobotRegistry');
 const RobotConnection = require('./robots/RobotConnection');
 const apiRouter    = require('./routes/api');
 const rosbagRouter = require('./routes/rosbag');
+const updateRouter = require('./routes/update');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -20,6 +21,7 @@ app.set('healthCheckInterval', config.healthCheckInterval);
 
 app.use('/api', apiRouter);
 app.use('/api', rosbagRouter);
+app.use('/api/update', updateRouter);
 app.use(errorHandler);
 
 // ── 로컬 로봇 자동 등록 (.env 기반) ────────────────────────

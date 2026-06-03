@@ -12,6 +12,99 @@ class Dashboard {
     if (this._simBtn) {
       this._simBtn.addEventListener('click', () => this._openSim());
     }
+
+    this._initUpdateUI();
+    this._checkUpdate();
+  }
+
+  // ── 업데이트 UI ──────────────────────────────────────────────
+  _initUpdateUI() {
+    const btn     = document.getElementById('update-btn');
+    const modal   = document.getElementById('update-modal');
+    const overlay = document.getElementById('update-overlay');
+    if (!btn || !modal || !overlay) return;
+
+    // 모달 열기
+    btn.addEventListener('click', () => { modal.style.display = 'flex'; });
+
+    // 모달 닫기
+    modal.querySelectorAll('.js-update-modal-close').forEach(el =>
+      el.addEventListener('click', () => { modal.style.display = 'none'; })
+    );
+    modal.addEventListener('click', e => {
+      if (e.target === modal) modal.style.display = 'none';
+    });
+
+    // 업데이트 적용
+    modal.querySelector('.js-update-apply').addEventListener('click', async () => {
+      modal.style.display = 'none';
+      overlay.style.display = 'flex';
+      this._setOverlay('업데이트 적용 중...', 'git pull 실행 중');
+
+      try {
+        const res  = await fetch('/api/update/apply', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '실패');
+
+        this._setOverlay('서버 재시작 중...', '잠시 후 자동으로 새로고침됩니다');
+        await this._waitForRestart();
+      } catch (e) {
+        overlay.style.display = 'none';
+        showToast('업데이트 실패: ' + e.message, 'error');
+      }
+    });
+  }
+
+  _setOverlay(title, sub) {
+    const t = document.querySelector('.js-overlay-title');
+    const s = document.querySelector('.js-overlay-sub');
+    if (t) t.textContent = title;
+    if (s) s.textContent = sub;
+  }
+
+  async _waitForRestart() {
+    await new Promise(r => setTimeout(r, 1500));
+    let attempts = 0;
+    while (attempts < 30) {
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        const res = await fetch('/api/robots');
+        if (res.ok) { location.reload(); return; }
+      } catch (_) {}
+      attempts++;
+      this._setOverlay('서버 재시작 중...', `재연결 시도 중... (${attempts * 2}s)`);
+    }
+    this._setOverlay('재시작 확인 불가', '수동으로 페이지를 새로고침해주세요');
+  }
+
+  async _checkUpdate() {
+    try {
+      const res  = await fetch('/api/update/check');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.hasUpdate) return;
+
+      const btn = document.getElementById('update-btn');
+      if (!btn) return;
+      btn.style.display = '';
+      const badge = btn.querySelector('.js-update-badge');
+      if (badge) badge.textContent = `v${data.latest}`;
+
+      const modal = document.getElementById('update-modal');
+      if (modal) {
+        modal.querySelector('.js-ver-current').textContent = `v${data.current}`;
+        modal.querySelector('.js-ver-latest').textContent  = `v${data.latest}`;
+        const ul = modal.querySelector('.js-update-commits');
+        ul.innerHTML = data.commits.length
+          ? data.commits.map(c => `
+              <li>
+                <span class="c-sha">${c.sha}</span>
+                <span class="c-date">${c.date}</span>
+                <span class="c-msg">${c.message.replace(/</g,'&lt;')}</span>
+              </li>`).join('')
+          : '<li style="color:var(--text-muted)">변경 이력을 가져올 수 없습니다</li>';
+      }
+    } catch (_) {}
   }
 
   render(robots, manager) {

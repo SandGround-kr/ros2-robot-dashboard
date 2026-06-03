@@ -451,6 +451,181 @@ body {
   to   { transform: translateX(0);    opacity: 1; }
 }
 
+/* ---- 업데이트 버튼 ---- */
+.update-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(46, 160, 67, 0.5);
+  background: rgba(46, 160, 67, 0.12);
+  color: var(--status-online-text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  position: relative;
+}
+.update-btn:hover {
+  background: rgba(46, 160, 67, 0.22);
+  border-color: rgba(46, 160, 67, 0.8);
+}
+.update-btn__icon { font-size: 13px; font-weight: 700; }
+.update-btn__badge {
+  font-size: 10px;
+  background: var(--status-online-text);
+  color: #000;
+  border-radius: 8px;
+  padding: 0 5px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+/* ---- 업데이트 모달 ---- */
+.update-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.update-modal__box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  width: 440px;
+  max-width: calc(100vw - 48px);
+  box-shadow: 0 24px 64px rgba(0,0,0,.6);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.update-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.update-modal__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.update-modal__close {
+  width: 24px; height: 24px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.update-modal__close:hover {
+  background: rgba(218,54,51,.15);
+  border-color: rgba(218,54,51,.3);
+  color: var(--status-offline-text);
+}
+.update-modal__versions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+}
+.update-modal__ver {
+  font-family: 'Consolas','Monaco',monospace;
+  font-size: 14px;
+  font-weight: 600;
+}
+.update-modal__ver--current { color: var(--text-muted); }
+.update-modal__ver--latest  { color: var(--status-online-text); }
+.update-modal__arrow { color: var(--text-muted); font-size: 16px; }
+.update-modal__commits-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.update-modal__commits {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+}
+.update-modal__commits li {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: grid;
+  grid-template-columns: 52px 72px 1fr;
+  gap: 6px;
+  align-items: baseline;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--border-muted);
+}
+.update-modal__commits li:last-child { border-bottom: none; }
+.update-modal__commits .c-sha  { font-family: monospace; color: var(--accent-blue-hover); font-size: 11px; }
+.update-modal__commits .c-date { font-size: 10px; color: var(--text-muted); }
+.update-modal__commits .c-msg  { color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.update-modal__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* ---- 업데이트 진행 오버레이 ---- */
+.update-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.75);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.update-overlay__box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 32px 40px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.6);
+}
+.update-overlay__spinner {
+  width: 36px; height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent-blue-hover);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+.update-overlay__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.update-overlay__sub {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 /* ---- 시뮬레이션 연결 버튼 ---- */
 .sim-btn {
   display: inline-flex;
