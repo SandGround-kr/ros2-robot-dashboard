@@ -81,41 +81,69 @@ class TopicDiscovery {
         this.client.callService('/rosapi/nodes',  'rosapi/Nodes'),
       ]);
 
-      const names = topicsRes.topics || [];
-      const types = topicsRes.types  || [];
-      const nodes = nodesRes.nodes   || [];
+      const names     = topicsRes.topics || [];
+      const types     = topicsRes.types  || [];
+      const nodes     = nodesRes.nodes   || [];
+      const currentTopicSet = new Set(names);
+      const currentNodeSet  = new Set(nodes);
 
       // 새 토픽 감지
       const newTopics = [];
       names.forEach((n, i) => {
         if (!this._knownTopics.has(n)) {
           newTopics.push({ name: n, type: types[i] || '' });
-          this._knownTopics.set(n, types[i] || '');
         }
+        this._knownTopics.set(n, types[i] || '');
       });
+
+      // 사라진 토픽 감지 및 제거
+      const removedTopics = [];
+      for (const [name, type] of this._knownTopics) {
+        if (!currentTopicSet.has(name)) {
+          removedTopics.push({ name, type });
+          this._knownTopics.delete(name);
+        }
+      }
 
       // 새 노드 감지
       const newNodes = nodes.filter(n => !this._knownNodes.has(n));
+
+      // 사라진 노드 감지 및 제거
+      const removedNodes = [];
+      for (const n of this._knownNodes) {
+        if (!currentNodeSet.has(n)) {
+          removedNodes.push(n);
+          this._knownNodes.delete(n);
+        }
+      }
       nodes.forEach(n => this._knownNodes.add(n));
 
       this._pollCount++;
 
-      // 항상 전체 목록 emit
+      // 현재 활성 토픽·노드 전체 emit
       const allTopics = Array.from(this._knownTopics.entries())
         .map(([name, type]) => ({ name, type }))
         .sort((a, b) => a.name.localeCompare(b.name));
 
       this._emit('topics_updated', {
         topics: allTopics,
-        nodes: Array.from(this._knownNodes),
+        nodes:  Array.from(this._knownNodes),
       });
 
-      // 새로 감지된 것만 별도 emit
+      // 새로 감지된 항목
       if (newTopics.length || newNodes.length) {
         this._emit('new_detected', {
-          topics: newTopics,
-          nodes:  newNodes,
+          topics:  newTopics,
+          nodes:   newNodes,
           modules: TopicDiscovery.detectModules(newTopics),
+        });
+      }
+
+      // 사라진 항목
+      if (removedTopics.length || removedNodes.length) {
+        this._emit('removed_detected', {
+          topics: removedTopics,
+          nodes:  removedNodes,
         });
       }
 

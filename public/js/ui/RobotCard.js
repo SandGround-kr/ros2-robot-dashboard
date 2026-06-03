@@ -966,6 +966,25 @@ class RobotCard {
           showToast(`새 노드 ${nodes.length}개 감지됨`, 'info');
         }
       });
+
+      // 사라진 토픽/노드 → UI에서 제거
+      this.discovery.on('removed_detected', ({ topics, nodes }) => {
+        topics.forEach(t => {
+          // 구독 중이면 자동 해제
+          if (this._subscribedTopics.has(t.name)) {
+            this.topicHandler.unsubscribe(t.name);
+            this._subscribedTopics.delete(t.name);
+            this._viewerRemoveTab(t.name);
+          }
+        });
+
+        if (topics.length) {
+          showToast(`토픽 ${topics.length}개 사라짐`, 'info');
+        }
+        if (nodes.length) {
+          showToast(`노드 ${nodes.length}개 사라짐`, 'info');
+        }
+      });
     }
   }
 
